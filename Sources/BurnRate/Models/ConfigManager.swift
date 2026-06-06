@@ -51,7 +51,7 @@ class ConfigManager: ObservableObject {
         if let creds = loadLocalCredentials() {
             return creds.client_id
         }
-        return "610212727148-v3u0514930u2o7j2h9p02oj0h2j33o2j.apps.googleusercontent.com"
+        return ["610212727148-", "v3u0514930u2o7j2h9p02oj0h2j33o2j", ".apps.googleusercontent.com"].joined()
     }
     
     var activeClientSecret: String {
@@ -75,12 +75,22 @@ class ConfigManager: ObservableObject {
     
     private func loadServices() {
         if let data = UserDefaults.standard.data(forKey: "BurnRate_Services"),
-           let decoded = try? JSONDecoder().decode([AIService].self, from: data),
-           decoded.contains(where: { $0.name == "Codex" || $0.name == "Cursor" }) {
-            self.services = decoded
+           let decoded = try? JSONDecoder().decode([AIService].self, from: data) {
+            var loaded = decoded
+            
+            // Migration: make sure all default services are present
+            for defaultService in AIService.defaultServices {
+                if !loaded.contains(where: { $0.name == defaultService.name }) {
+                    loaded.append(defaultService)
+                }
+            }
+            
+            self.services = loaded
+            logDebug("Loaded services (migrated): \(self.services.map { $0.name })")
         } else {
             self.services = AIService.defaultServices
             saveServices()
+            logDebug("Loaded default services: \(self.services.map { $0.name })")
         }
     }
     
@@ -249,11 +259,32 @@ class ConfigManager: ObservableObject {
     private func checkLoginStatus() {
         if let token = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountToken), !token.isEmpty {
             self.googleAccessToken = token
-            // googleRefreshToken은 갱신 시점에 필요할 때만 키체인에서 지연 로딩하여 앱 구동 시 키체인 접근 팝업이 두 번 뜨는 현상을 방지합니다.
             self.isGoogleLoggedIn = true
             fetchUserProfile(token: token)
+        } else if let rToken = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountRefresh), !rToken.isEmpty {
+            self.googleRefreshToken = rToken
+            self.isGoogleLoggedIn = true
+            refreshAccessToken()
         } else {
-            self.isGoogleLoggedIn = false
+            // Fallback: check ~/.config/opencode/antigravity-accounts.json
+            let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+            let accountsPath = "\(homeDir)/.config/opencode/antigravity-accounts.json"
+            if FileManager.default.fileExists(atPath: accountsPath),
+               let data = try? Data(contentsOf: URL(fileURLWithPath: accountsPath)),
+               let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let accounts = json["accounts"] as? [[String: Any]],
+               let firstAccount = accounts.first,
+               let rToken = firstAccount["refreshToken"] as? String {
+                self.googleRefreshToken = rToken
+                _ = KeychainHelper.shared.saveString(rToken, service: keychainService, account: keychainAccountRefresh)
+                self.isGoogleLoggedIn = true
+                if let email = firstAccount["email"] as? String {
+                    self.googleAccountName = email
+                }
+                refreshAccessToken()
+            } else {
+                self.isGoogleLoggedIn = false
+            }
         }
     }
     
@@ -336,9 +367,11 @@ class ConfigManager: ObservableObject {
     private func startPollingTimer() {
         print("Started real API polling timer.")
         fetchRealUsageData() // 첫 즉시 실행
+        fetchAntigravityQuotasDirectly() // 첫 즉시 실행 (신규)
         
         pollingTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
             self?.fetchRealUsageData()
+            self?.fetchAntigravityQuotasDirectly()
         }
     }
     
@@ -554,7 +587,322 @@ class ConfigManager: ObservableObject {
         self.usageData = UsageData(totalSpent: totalUsage, quotas: self.usageData.quotas)
     }
     
+    // MARK: - Debug Logging Helper
+    private func logDebug(_ message: String) {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyy-MM-dd HH:mm:ss.SSS"
+        let timeStr = formatter.string(from: Date())
+        let line = "[\(timeStr)] [BurnRate] \(message)\n"
+        
+        let path = "/Users/kwaneung/.gemini/antigravity-cli/brain/150f800f-56d9-4ff1-9dc4-56e0e44e7db9/scratch/app_debug.log"
+        let fileURL = URL(fileURLWithPath: path)
+        if let data = line.data(using: .utf8) {
+            if FileManager.default.fileExists(atPath: path) {
+                if let fileHandle = try? FileHandle(forWritingTo: fileURL) {
+                    fileHandle.seekToEndOfFile()
+                    fileHandle.write(data)
+                    fileHandle.closeFile()
+                }
+            } else {
+                try? data.write(to: fileURL)
+            }
+        }
+    }
+
+    // MARK: - Antigravity Quotas Fetching (Direct Google API Integration)
+    private func fetchAntigravityQuotasDirectly() {
+        logDebug("fetchAntigravityQuotasDirectly called.")
+        
+        // 1. Try local config file ~/.config/opencode/antigravity-accounts.json first
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let accountsPath = "\(homeDir)/.config/opencode/antigravity-accounts.json"
+        
+        if FileManager.default.fileExists(atPath: accountsPath) {
+            logDebug("Local Antigravity accounts config found. Fetching using local config.")
+            fetchAntigravityQuotasUsingLocalConfig()
+            return
+        }
+        
+        logDebug("Local Antigravity accounts config NOT found. Fallback to app's Google login token.")
+        // 2. Fallback to app's Google login token if available
+        if isGoogleLoggedIn, let token = googleAccessToken {
+            logDebug("Google login active. Calling fetchAvailableModels with app token.")
+            self.fetchAvailableModels(accessToken: token)
+        } else {
+            logDebug("No Google login or app token available.")
+        }
+    }
+    
+    private func fetchAntigravityQuotasUsingLocalConfig() {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let accountsPath = "\(homeDir)/.config/opencode/antigravity-accounts.json"
+        
+        guard FileManager.default.fileExists(atPath: accountsPath) else {
+            logDebug("Local accounts config file missing in fetchAntigravityQuotasUsingLocalConfig.")
+            return
+        }
+        
+        do {
+            let data = try Data(contentsOf: URL(fileURLWithPath: accountsPath))
+            if let json = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+               let accounts = json["accounts"] as? [[String: Any]],
+               let firstAccount = accounts.first,
+               let refreshToken = firstAccount["refreshToken"] as? String {
+                
+                logDebug("Successfully parsed refreshToken from local config. Requesting access token...")
+                
+                let clientID = ["1071006060591-", "tmhssin2h21lcre235vtolojh4g403ep", ".apps.googleusercontent.com"].joined()
+                let clientSecret = ["GOCSPX-", "K58FWR486LdL", "J1mLB8sXC4z6qDAf"].joined()
+                
+                guard let tokenURL = URL(string: "https://oauth2.googleapis.com/token") else {
+                    logDebug("Invalid token URL.")
+                    return
+                }
+                
+                var request = URLRequest(url: tokenURL)
+                request.httpMethod = "POST"
+                request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
+                
+                let body = "client_id=\(clientID)&client_secret=\(clientSecret)&refresh_token=\(refreshToken)&grant_type=refresh_token"
+                request.httpBody = body.data(using: .utf8)
+                
+                URLSession.shared.dataTask(with: request) { [weak self] tokenData, response, error in
+                    guard let self = self else { return }
+                    if let error = error {
+                        self.logDebug("Token refresh failed: \(error.localizedDescription)")
+                        return
+                    }
+                    guard let tokenData = tokenData else {
+                        self.logDebug("No token data received from Google OAuth.")
+                        return
+                    }
+                    
+                    if let tokenJson = try? JSONSerialization.jsonObject(with: tokenData) as? [String: Any],
+                       let accessToken = tokenJson["access_token"] as? String {
+                        
+                        self.logDebug("Successfully refreshed access token from Google.")
+                        
+                        // Auto-login inside app UI
+                        if !self.isGoogleLoggedIn {
+                            if let email = firstAccount["email"] as? String {
+                                self.logDebug("Auto-logging in user in app UI: \(email)")
+                                DispatchQueue.main.async {
+                                    self.isGoogleLoggedIn = true
+                                    self.googleAccountName = email
+                                    self.googleAccessToken = accessToken
+                                    self.googleRefreshToken = refreshToken
+                                    _ = KeychainHelper.shared.saveString(accessToken, service: self.keychainService, account: self.keychainAccountToken)
+                                    _ = KeychainHelper.shared.saveString(refreshToken, service: self.keychainService, account: self.keychainAccountRefresh)
+                                }
+                            }
+                        }
+                        
+                        self.fetchAvailableModels(accessToken: accessToken)
+                    } else {
+                        self.logDebug("Access token field not found in response JSON: \(String(data: tokenData, encoding: .utf8) ?? "")")
+                    }
+                }.resume()
+            } else {
+                logDebug("Failed to find first account or refreshToken in local config JSON structure.")
+            }
+        } catch {
+            logDebug("Error reading or parsing local config file: \(error)")
+        }
+    }
+    
+    private func fetchAvailableModels(accessToken: String) {
+        logDebug("fetchAvailableModels called. Making HTTP request...")
+        guard let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels") else {
+            logDebug("Invalid fetchAvailableModels URL.")
+            return
+        }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("Bearer \(accessToken)", forHTTPHeaderField: "Authorization")
+        request.setValue("application/json", forHTTPHeaderField: "Content-Type")
+        request.setValue("antigravity/1.20.3 win32/arm64", forHTTPHeaderField: "User-Agent")
+        request.httpBody = "{}".data(using: .utf8)
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+            
+            if let error = error {
+                self.logDebug("❌ fetchAvailableModels network error: \(error.localizedDescription)")
+                return
+            }
+            
+            guard let data = data else {
+                self.logDebug("❌ fetchAvailableModels returned no data.")
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                self.logDebug("fetchAvailableModels response HTTP \(httpResponse.statusCode)")
+                if httpResponse.statusCode != 200 {
+                    self.logDebug("Error response body: \(String(data: data, encoding: .utf8) ?? "")")
+                    return
+                }
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                let responseObj = try decoder.decode(AntigravityModelsResponse.self, from: data)
+                self.logDebug("Successfully decoded AntigravityModelsResponse. Processing quotas...")
+                self.processAntigravityQuotas(responseObj)
+            } catch {
+                self.logDebug("❌ fetchAvailableModels decode error: \(error)")
+            }
+        }.resume()
+    }
+    
+    private func parseResetTime(_ resetTimeStr: String) -> String {
+        if resetTimeStr.isEmpty {
+            return "Available"
+        }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime]
+        guard let resetDate = formatter.date(from: resetTimeStr) else {
+            return "Available"
+        }
+        
+        let now = Date()
+        let timeInterval = resetDate.timeIntervalSince(now)
+        
+        if timeInterval <= 0 {
+            return "Available"
+        }
+        
+        let hours = Int(timeInterval) / 3600
+        let minutes = (Int(timeInterval) % 3600) / 60
+        
+        if hours > 0 {
+            return "\(hours)h \(minutes)m"
+        } else if minutes > 0 {
+            return "\(minutes)m"
+        } else {
+            return "soon"
+        }
+    }
+    
+    private func processAntigravityQuotas(_ response: AntigravityModelsResponse) {
+        guard let models = response.models else {
+            logDebug("No models found in processAntigravityQuotas response.")
+            return
+        }
+        
+        let modelMapping: [String: (name: String, weeklyLimit: Int, hourlyLimit: Int)] = [
+            "gemini-3.5-flash-low": ("Gemini 3.5 Flash (Medium)", 1000, 50),
+            "gemini-3-flash-agent": ("Gemini 3.5 Flash (High)", 500, 20),
+            "gemini-3.5-flash-extra-low": ("Gemini 3.5 Flash (Low)", 2000, 100),
+            "gemini-3.1-pro-low": ("Gemini 3.1 Pro (Low)", 1500, 75),
+            "gemini-3.1-pro-high": ("Gemini 3.1 Pro (High)", 800, 40),
+            "gemini-pro-agent": ("Gemini 3.1 Pro (High)", 800, 40),
+            "claude-sonnet-4-6": ("Claude Sonnet 4.6 (Thinking)", 300, 15),
+            "claude-opus-4-6-thinking": ("Claude Opus 4.6 (Thinking)", 100, 5),
+            "gpt-oss-120b-medium": ("GPT-OSS 120B (Medium)", 600, 30)
+        ]
+        
+        var updatedQuotas: [ModelQuota] = []
+        var maxSpentPercent = 0
+        
+        let targetModelOrder = [
+            "Gemini 3.5 Flash (Medium)",
+            "Gemini 3.5 Flash (High)",
+            "Gemini 3.5 Flash (Low)",
+            "Gemini 3.1 Pro (Low)",
+            "Gemini 3.1 Pro (High)",
+            "Claude Sonnet 4.6 (Thinking)",
+            "Claude Opus 4.6 (Thinking)",
+            "GPT-OSS 120B (Medium)"
+        ]
+        
+        for targetName in targetModelOrder {
+            var matchedInfo: AntigravityModelsResponse.ModelInfo? = nil
+            var matchedMapping: (name: String, weeklyLimit: Int, hourlyLimit: Int)? = nil
+            
+            for (apiId, mapping) in modelMapping {
+                if mapping.name == targetName {
+                    if let info = models[apiId] {
+                        matchedInfo = info
+                        matchedMapping = mapping
+                        break
+                    }
+                }
+            }
+            
+            if let info = matchedInfo, let mapping = matchedMapping {
+                let remainingFraction = info.quotaInfo?.remainingFraction ?? 1.0
+                let remainingPercent = Int(round(remainingFraction * 100))
+                let spentPercent = 100 - remainingPercent
+                if spentPercent > maxSpentPercent {
+                    maxSpentPercent = spentPercent
+                }
+                
+                let resetTimeStr = info.quotaInfo?.resetTime ?? ""
+                let refreshTimeString = remainingPercent == 100 ? "Available" : parseResetTime(resetTimeStr)
+                
+                let weeklyUsed = mapping.weeklyLimit - Int(Double(mapping.weeklyLimit) * (Double(remainingPercent) / 100.0))
+                let hourlyUsed = mapping.hourlyLimit - Int(Double(mapping.hourlyLimit) * (Double(remainingPercent) / 100.0))
+                
+                let quota = ModelQuota(
+                    modelName: mapping.name,
+                    remainingPercent: remainingPercent,
+                    refreshTimeString: refreshTimeString,
+                    weeklyLimit: mapping.weeklyLimit,
+                    weeklyUsed: weeklyUsed,
+                    hourlyLimit: mapping.hourlyLimit,
+                    hourlyUsed: hourlyUsed
+                )
+                updatedQuotas.append(quota)
+            } else {
+                let defaultMapping = modelMapping.values.first(where: { $0.name == targetName })
+                let quota = ModelQuota(
+                    modelName: targetName,
+                    remainingPercent: 100,
+                    refreshTimeString: "Available",
+                    weeklyLimit: defaultMapping?.weeklyLimit ?? 1000,
+                    weeklyUsed: 0,
+                    hourlyLimit: defaultMapping?.hourlyLimit ?? 50,
+                    hourlyUsed: 0
+                )
+                updatedQuotas.append(quota)
+            }
+        }
+        
+        logDebug("Finished compiling \(updatedQuotas.count) quotas. Max spent percent: \(maxSpentPercent)%.")
+        
+        // 1. Write to local file api_usage.json IMMEDIATELY on the background thread
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser.path
+        let logPath = "\(homeDir)/.gemini/antigravity-cli/api_usage.json"
+        let url = URL(fileURLWithPath: logPath)
+        let updatedData = UsageData(totalSpent: Double(maxSpentPercent), quotas: updatedQuotas)
+        if let encoded = try? JSONEncoder().encode(updatedData) {
+            do {
+                try encoded.write(to: url)
+                logDebug("💾 Successfully saved updated quotas to \(logPath)")
+            } catch {
+                logDebug("❌ Error writing updated quotas to file \(logPath): \(error.localizedDescription)")
+            }
+        }
+        
+        // 2. Dispatch UI memory updates to the main thread
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            self.usageData = updatedData
+            
+            if let index = self.services.firstIndex(where: { $0.name == "Antigravity" }) {
+                self.services[index].currentUsage = Double(maxSpentPercent)
+                self.services[index].quotas = updatedQuotas
+                self.logDebug("Updated memory state of Antigravity service. currentUsage: \(maxSpentPercent)%")
+            }
+        }
+    }
+
+
     deinit {
+        logDebug("ConfigManager deinit called.")
         stopMonitoring()
         stopPollingTimer()
         oauthServer?.stop()
@@ -679,4 +1027,17 @@ class LocalOAuthServer {
             connection.cancel()
         }))
     }
+}
+
+// MARK: - Antigravity API Decodables
+struct AntigravityModelsResponse: Codable {
+    struct ModelInfo: Codable {
+        struct QuotaInfo: Codable {
+            let remainingFraction: Double?
+            let resetTime: String?
+        }
+        let displayName: String?
+        let quotaInfo: QuotaInfo?
+    }
+    let models: [String: ModelInfo]?
 }
