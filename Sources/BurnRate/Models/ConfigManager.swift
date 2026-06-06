@@ -727,7 +727,7 @@ class ConfigManager: ObservableObject {
     
     private func fetchAvailableModels(accessToken: String) {
         logDebug("fetchAvailableModels called. Making HTTP request...")
-        guard let url = URL(string: "https://cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels") else {
+        guard let url = URL(string: "https://daily-cloudcode-pa.googleapis.com/v1internal:fetchAvailableModels") else {
             logDebug("Invalid fetchAvailableModels URL.")
             return
         }
@@ -847,7 +847,12 @@ class ConfigManager: ObservableObject {
             }
             
             if let info = matchedInfo, let mapping = matchedMapping {
-                let remainingFraction = info.quotaInfo?.remainingFraction ?? 1.0
+                let remainingFraction: Double
+                if let quotaInfo = info.quotaInfo {
+                    remainingFraction = quotaInfo.remainingFraction ?? 0.0
+                } else {
+                    remainingFraction = 1.0
+                }
                 let remainingPercent = Int(round(remainingFraction * 100))
                 let spentPercent = 100 - remainingPercent
                 if spentPercent > maxSpentPercent {

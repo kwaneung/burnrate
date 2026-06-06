@@ -56,14 +56,11 @@ struct AntigravityDetailView: View {
                                         .frame(width: 32, alignment: .trailing)
                                 }
                                 
-                                // 하단 가이드 텍스트 (남은 용량 및 갱신 시각)
+                                // 하단 가이드 텍스트 (남은 용량 및 갱신 시각) - agy CLI 형식 일치
                                 HStack {
-                                    if quota.remainingPercent == 100 && quota.refreshTimeString == "Available" {
-                                        Text("Quota available")
-                                            .foregroundColor(.green)
-                                    } else {
-                                        Text("\(quota.remainingPercent)% remaining")
-                                            .foregroundColor(.secondary)
+                                    Text("\(quota.remainingPercent)% remaining")
+                                        .foregroundColor(quota.remainingPercent == 100 ? .green : .secondary)
+                                    if quota.refreshTimeString != "Available" {
                                         Text("•")
                                             .foregroundColor(.secondary)
                                         Text("Refreshes in \(quota.refreshTimeString)")
