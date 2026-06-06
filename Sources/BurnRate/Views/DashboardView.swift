@@ -3,10 +3,14 @@ import SwiftUI
 struct DashboardView: View {
     @ObservedObject var configManager: ConfigManager
     @State private var showingSettings = false
+    @State private var activeDetailService: AIService? = nil
     
     var body: some View {
         VStack(spacing: 0) {
-            if showingSettings {
+            if let detailService = activeDetailService, detailService.name == "Antigravity" {
+                let currentService = configManager.services.first(where: { $0.id == detailService.id }) ?? detailService
+                AntigravityDetailView(service: currentService, activeDetailService: $activeDetailService)
+            } else if showingSettings {
                 SettingsView(configManager: configManager, isPresented: $showingSettings)
             } else {
                 // 헤더 영역
@@ -94,7 +98,17 @@ struct DashboardView: View {
                 List {
                     Section(header: Text("연동된 AI").font(.caption).foregroundColor(.secondary)) {
                         ForEach(configManager.services) { service in
-                            ServiceRowView(service: service)
+                            if service.isEnabled && service.name == "Antigravity" {
+                                Button(action: {
+                                    activeDetailService = service
+                                }) {
+                                    ServiceRowView(service: service)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            } else {
+                                ServiceRowView(service: service)
+                            }
                         }
                     }
                     

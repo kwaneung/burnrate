@@ -124,18 +124,37 @@ class ConfigManager: ObservableObject {
                 let enabledIndices = updatedServices.indices.filter { updatedServices[$0].isEnabled }
                 
                 if let randomIndex = enabledIndices.randomElement() {
-                    let addition = Double.random(in: 1.0...15.0)
-                    let limit = updatedServices[randomIndex].totalLimit
-                    let current = updatedServices[randomIndex].currentUsage
+                    let serviceName = updatedServices[randomIndex].name
                     
-                    updatedServices[randomIndex].currentUsage = min(current + addition, limit)
+                    if serviceName == "Antigravity", var quotas = updatedServices[randomIndex].quotas, !quotas.isEmpty {
+                        // Antigravity인 경우, 모델 중 임의의 하나의 잔여 쿼터(remainingPercent)를 랜덤 감소
+                        let quotaIndex = Int.random(in: 0..<quotas.count)
+                        let currentRemaining = quotas[quotaIndex].remainingPercent
+                        let depletion = Int.random(in: 2...8)
+                        
+                        quotas[quotaIndex].remainingPercent = max(currentRemaining - depletion, 0)
+                        updatedServices[randomIndex].quotas = quotas
+                        
+                        // 대표값 설정: 모델 중 가장 많이 소진된(가장 잔여량이 적은) 쿼터 소진율을 대시보드 대표 사용량으로 연산
+                        let minRemaining = quotas.map { $0.remainingPercent }.min() ?? 100
+                        updatedServices[randomIndex].currentUsage = Double(100 - minRemaining)
+                        
+                        print("Mock usage: Antigravity - \(quotas[quotaIndex].modelName) remaining: \(quotas[quotaIndex].remainingPercent)% (Representative usage: \(updatedServices[randomIndex].currentUsage)/100)")
+                    } else {
+                        // 일반 서비스인 경우 단순 가산
+                        let addition = Double.random(in: 1.0...15.0)
+                        let limit = updatedServices[randomIndex].totalLimit
+                        let current = updatedServices[randomIndex].currentUsage
+                        
+                        updatedServices[randomIndex].currentUsage = min(current + addition, limit)
+                        print("Mock usage added to \(serviceName): +\(String(format: "%.1f", addition)) -> \(updatedServices[randomIndex].currentUsage)/\(limit)")
+                    }
+                    
                     self.services = updatedServices
                     
                     // 합산 사용량을 usageData.totalSpent에 바인딩
                     let totalUsage = updatedServices.filter(\.isEnabled).map(\.currentUsage).reduce(0, +)
                     self.usageData = UsageData(totalSpent: totalUsage)
-                    
-                    print("Mock usage added to \(updatedServices[randomIndex].name): +\(String(format: "%.1f", addition)) -> \(updatedServices[randomIndex].currentUsage)/\(limit)")
                 }
             }
         }
