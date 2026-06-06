@@ -36,45 +36,27 @@ struct DashboardView: View {
                 
                 Divider()
                 
-                // 중앙 대시보드 요약 (원형 그래프)
-                VStack(spacing: 12) {
+                // 중앙 대시보드 요약 카드
+                VStack(spacing: 8) {
                     let todaySpent = configManager.usageData.totalSpent
-                    let dailyBudget = configManager.dailyBudget
-                    let pct = dailyBudget > 0 ? todaySpent / dailyBudget : 0.0
                     
-                    ZStack {
-                        Circle()
-                            .stroke(Color.secondary.opacity(0.15), lineWidth: 12)
+                    VStack(spacing: 6) {
+                        Image(systemName: "flame.fill")
+                            .font(.system(size: 32))
+                            .foregroundColor(.orange)
+                            .padding(.bottom, 2)
                         
-                        Circle()
-                            .trim(from: 0.0, to: CGFloat(min(pct, 1.0)))
-                            .stroke(
-                                AngularGradient(colors: [.yellow, .orange, .red], center: .center),
-                                style: StrokeStyle(lineWidth: 12, lineCap: .round)
-                            )
-                            .rotationEffect(Angle(degrees: -90))
-                            .animation(.easeOut(duration: 0.8), value: todaySpent)
+                        Text(String(format: "$%.2f", todaySpent))
+                            .font(.system(size: 36, weight: .bold, design: .rounded))
                         
-                        VStack(spacing: 2) {
-                            Text(String(format: "$%.2f", todaySpent))
-                                .font(.system(size: 26, weight: .bold, design: .rounded))
-                            Text("오늘 사용액")
-                                .font(.caption2)
-                                .foregroundColor(.secondary)
-                        }
-                    }
-                    .frame(width: 130, height: 130)
-                    .padding(.vertical, 10)
-                    
-                    HStack(spacing: 4) {
-                        Text("일일 한도:")
+                        Text("오늘 총 사용 요금")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
-                        Text(String(format: "$%.2f", dailyBudget))
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                            .foregroundColor(todaySpent >= dailyBudget ? .red : .primary)
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 24)
+                    .background(Color.secondary.opacity(0.08))
+                    .cornerRadius(16)
                 }
                 .padding()
                 

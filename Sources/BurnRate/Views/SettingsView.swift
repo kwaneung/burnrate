@@ -30,23 +30,6 @@ struct SettingsView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // 일일 예산 설정
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text("일일 API 예산 제한 (USD)")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        
-                        HStack {
-                            Text("$")
-                                .foregroundColor(.secondary)
-                            TextField("Budget", value: $configManager.dailyBudget, formatter: NumberFormatter.currencyFormatter)
-                                .textFieldStyle(.roundedBorder)
-                                .frame(width: 100)
-                        }
-                    }
-                    
-                    Divider()
-                    
                     // AI 서비스 리스트 및 연동 설정
                     Text("AI 서비스 연동")
                         .font(.subheadline)

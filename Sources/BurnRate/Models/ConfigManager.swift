@@ -2,12 +2,6 @@ import Foundation
 import Combine
 
 class ConfigManager: ObservableObject {
-    @Published var dailyBudget: Double = 10.0 {
-        didSet {
-            UserDefaults.standard.set(dailyBudget, forKey: "BurnRate_DailyBudget")
-        }
-    }
-    
     @Published var services: [AIService] = [] {
         didSet {
             saveServices()
@@ -22,11 +16,6 @@ class ConfigManager: ObservableObject {
     private var mockTimer: Timer?
     
     init() {
-        self.dailyBudget = UserDefaults.standard.double(forKey: "BurnRate_DailyBudget")
-        if self.dailyBudget == 0.0 {
-            self.dailyBudget = 10.0 // 기본 일일 제한 $10
-        }
-        
         loadServices()
         setupDataSynchronization()
     }

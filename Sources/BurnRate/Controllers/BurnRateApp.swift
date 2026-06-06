@@ -34,27 +34,20 @@ struct BurnRateApp: App {
         }
     }
     
-    private var burnRate: Double {
-        let budget = configManager.dailyBudget
-        let spent = configManager.usageData.totalSpent
-        return budget > 0 ? spent / budget : 0.0
+    private var totalSpent: Double {
+        return configManager.usageData.totalSpent
     }
     
-    // 소진율에 따라 프레임에 어울리는 이미지명 혹은 SF Symbol명을 리턴
+    // 사용 금액에 따라 프레임에 어울리는 이미지명 혹은 SF Symbol명을 리턴
     private var currentFrameName: String {
-        let rate = burnRate
-        
-        if rate >= 1.0 {
-            // 예산 초과
-            return hasLocalAsset(name: "cat_dead") ? "cat_dead" : "xmark.octagon.fill"
-        }
+        let spent = totalSpent
         
         let baseName: String
-        if rate >= 0.8 {
+        if spent >= 10.0 {
             baseName = "cat_fire"
-        } else if rate >= 0.5 {
+        } else if spent >= 5.0 {
             baseName = "cat_run"
-        } else if rate >= 0.2 {
+        } else if spent >= 1.0 {
             baseName = "cat_walk"
         } else {
             baseName = "cat_sleep"
@@ -65,10 +58,10 @@ struct BurnRateApp: App {
             return imageName
         } else {
             // Asset 리소스가 없을 경우 시스템 아이콘으로 대체 (기본값 flame.fill)
-            if rate >= 0.8 { return "flame.fill" }
-            if rate >= 0.5 { return "bolt.fill" }
-            if rate >= 0.2 { return "sparkles" }
-            return "flame.fill" // circle.dashed 대신 flame.fill 리턴
+            if spent >= 10.0 { return "flame.fill" }
+            if spent >= 5.0 { return "bolt.fill" }
+            if spent >= 1.0 { return "sparkles" }
+            return "flame.fill"
         }
     }
     
@@ -77,22 +70,19 @@ struct BurnRateApp: App {
     }
     
     private func animateFrames() {
-        let rate = burnRate
-        if rate >= 1.0 {
-            return // 100% 이상일 때는 애니메이션이 정지함
-        }
+        let spent = totalSpent
         
         // 50ms 타이머 기준으로 프레임당 유지할 틱(tick) 수 결정
-        // 80% 이상: 50ms 마다 갱신 (1틱)
-        // 50% 이상: 100ms 마다 갱신 (2틱)
-        // 20% 이상: 200ms 마다 갱신 (4틱)
-        // 20% 미만: 400ms 마다 갱신 (8틱)
+        // $10.0 이상: 50ms 마다 갱신 (1틱)
+        // $5.0 이상: 100ms 마다 갱신 (2틱)
+        // $1.0 이상: 200ms 마다 갱신 (4틱)
+        // $1.0 미만: 400ms 마다 갱신 (8틱)
         let ticksPerFrame: Int
-        if rate >= 0.8 {
+        if spent >= 10.0 {
             ticksPerFrame = 1
-        } else if rate >= 0.5 {
+        } else if spent >= 5.0 {
             ticksPerFrame = 2
-        } else if rate >= 0.2 {
+        } else if spent >= 1.0 {
             ticksPerFrame = 4
         } else {
             ticksPerFrame = 8
