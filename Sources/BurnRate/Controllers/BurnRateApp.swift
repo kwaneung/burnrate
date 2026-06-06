@@ -65,10 +65,7 @@ struct BurnRateApp: App {
         if hasLocalAsset(name: imageName) {
             return imageName
         } else {
-            // Asset 리소스가 없을 경우 시스템 아이콘으로 대체 (기본값 flame.fill)
-            if rate >= 0.8 { return "flame.fill" }
-            if rate >= 0.5 { return "bolt.fill" }
-            if rate >= 0.2 { return "sparkles" }
+            // 로컬 에셋이 없을 경우 항상 기본 불꽃 모양으로 고정 노출
             return "flame.fill"
         }
     }
