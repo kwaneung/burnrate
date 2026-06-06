@@ -14,6 +14,16 @@ class ConfigManager: ObservableObject {
     @Published var usageData: UsageData = .empty
     @Published var isGoogleLoggedIn: Bool = false
     @Published var googleAccountName: String = "연동 해제됨"
+    @Published var isCursorLinked: Bool = false {
+        didSet {
+            UserDefaults.standard.set(isCursorLinked, forKey: "BurnRate_CursorLinked")
+            if isCursorLinked {
+                fetchCursorUsageDirectly()
+            } else {
+                resetCursorUsage()
+            }
+        }
+    }
     
     private var fileMonitorSource: DispatchSourceFileSystemObject?
     private var currentLogPath: String?
@@ -67,7 +77,10 @@ class ConfigManager: ObservableObject {
     private let keychainAccountRefresh = "GoogleRefreshToken"
     
     init() {
-        self.googleClientID = UserDefaults.standard.string(forKey: "BurnRate_GoogleClientID") ?? ""
+        logDebug("Bundle identifier: \(Bundle.main.bundleIdentifier ?? "nil")")
+        logDebug("UserDefaults keys matching BurnRate: \(UserDefaults.standard.dictionaryRepresentation().keys.filter { $0.contains("BurnRate") })")
+        self._googleClientID = Published(wrappedValue: UserDefaults.standard.string(forKey: "BurnRate_GoogleClientID") ?? "")
+        self._isCursorLinked = Published(wrappedValue: UserDefaults.standard.bool(forKey: "BurnRate_CursorLinked"))
         loadServices()
         checkLoginStatus()
         setupDataSynchronization()
@@ -368,10 +381,12 @@ class ConfigManager: ObservableObject {
         print("Started real API polling timer.")
         fetchRealUsageData() // 첫 즉시 실행
         fetchAntigravityQuotasDirectly() // 첫 즉시 실행 (신규)
+        fetchCursorUsageDirectly() // 첫 즉시 실행 (신규)
         
         pollingTimer = Timer.scheduledTimer(withTimeInterval: 15.0, repeats: true) { [weak self] _ in
             self?.fetchRealUsageData()
             self?.fetchAntigravityQuotasDirectly()
+            self?.fetchCursorUsageDirectly()
         }
     }
     
@@ -900,6 +915,182 @@ class ConfigManager: ObservableObject {
         }
     }
 
+    // MARK: - Cursor API Integration
+    private func resetCursorUsage() {
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let index = self.services.firstIndex(where: { $0.name == "Cursor" }) {
+                self.services[index].currentUsage = 0.0
+                self.services[index].quotas = []
+                self.logDebug("Reset Cursor service usage data.")
+            }
+        }
+    }
+
+    private func extractSubFromJWT(_ jwt: String) -> String? {
+        let parts = jwt.components(separatedBy: ".")
+        guard parts.count > 1 else { return nil }
+        var base64 = parts[1]
+        
+        let remainder = base64.count % 4
+        if remainder > 0 {
+            base64 += String(repeating: "=", count: 4 - remainder)
+        }
+        
+        base64 = base64.replacingOccurrences(of: "-", with: "+")
+        base64 = base64.replacingOccurrences(of: "_", with: "/")
+        
+        guard let data = Data(base64Encoded: base64),
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+              let sub = json["sub"] as? String else {
+            return nil
+        }
+        return sub
+    }
+
+    private func fetchCursorUsageDirectly() {
+        logDebug("fetchCursorUsageDirectly called. isCursorLinked: \(isCursorLinked)")
+        guard isCursorLinked else { return }
+        
+        guard let token = KeychainHelper.shared.readString(service: "cursor-access-token", account: "cursor-user") else {
+            logDebug("❌ Cursor token not found in Keychain.")
+            return
+        }
+        
+        guard let sub = extractSubFromJWT(token) else {
+            logDebug("❌ Failed to decode sub from Cursor JWT.")
+            return
+        }
+        
+        let cookieValue = "\(sub)::\(token)"
+        guard let url = URL(string: "https://cursor.com/api/usage-summary") else { return }
+        
+        var request = URLRequest(url: url)
+        request.httpMethod = "GET"
+        request.setValue("WorkosCursorSessionToken=\(cookieValue)", forHTTPHeaderField: "Cookie")
+        request.setValue("https://cursor.com", forHTTPHeaderField: "Origin")
+        request.setValue("Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko)", forHTTPHeaderField: "User-Agent")
+        
+        URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
+            guard let self = self else { return }
+            if let error = error {
+                self.logDebug("❌ Cursor API request failed: \(error.localizedDescription)")
+                return
+            }
+            guard let data = data else {
+                self.logDebug("❌ Cursor API returned no data.")
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                self.logDebug("Cursor API response HTTP \(httpResponse.statusCode)")
+                if httpResponse.statusCode != 200 {
+                    self.logDebug("Error response body: \(String(data: data, encoding: .utf8) ?? "")")
+                    return
+                }
+            }
+            
+            do {
+                let decoder = JSONDecoder()
+                let usage = try decoder.decode(CursorUsageResponse.self, from: data)
+                self.logDebug("Successfully decoded CursorUsageResponse.")
+                self.processCursorUsage(usage)
+            } catch {
+                self.logDebug("❌ Cursor API decode error: \(error)")
+            }
+        }.resume()
+    }
+
+    private func parseCursorResetTime(_ dateStr: String) -> String {
+        if dateStr.isEmpty {
+            return "Available"
+        }
+        let formatter = ISO8601DateFormatter()
+        formatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+        var date = formatter.date(from: dateStr)
+        if date == nil {
+            let fallbackFormatter = ISO8601DateFormatter()
+            fallbackFormatter.formatOptions = [.withInternetDateTime]
+            date = fallbackFormatter.date(from: dateStr)
+        }
+        
+        guard let resetDate = date else {
+            return "Available"
+        }
+        
+        let now = Date()
+        let timeInterval = resetDate.timeIntervalSince(now)
+        
+        if timeInterval <= 0 {
+            return "Available"
+        }
+        
+        let days = Int(round(timeInterval / 86400))
+        
+        let calendar = Calendar.current
+        let month = calendar.component(.month, from: resetDate)
+        let day = calendar.component(.day, from: resetDate)
+        
+        if days > 0 {
+            return "\(month)월 \(day)일 (\(days) days)"
+        } else {
+            let hours = Int(timeInterval) / 3600
+            let minutes = (Int(timeInterval) % 3600) / 60
+            if hours > 0 {
+                return "\(hours)h \(minutes)m"
+            } else {
+                return "\(minutes)m"
+            }
+        }
+    }
+
+    private func processCursorUsage(_ response: CursorUsageResponse) {
+        guard let plan = response.individualUsage?.plan else { return }
+        
+        let billingCycleEndStr = response.billingCycleEnd ?? ""
+        let refreshTimeString = parseCursorResetTime(billingCycleEndStr)
+        
+        let autoUsedPercent = Int(round(plan.autoPercentUsed ?? 0.0))
+        let autoRemainingPercent = max(0, 100 - autoUsedPercent)
+        
+        let apiUsedPercent = Int(round(plan.apiPercentUsed ?? 0.0))
+        let apiRemainingPercent = max(0, 100 - apiUsedPercent)
+        
+        let totalUsedPercent = Int(plan.totalPercentUsed ?? 0.0)
+        
+        let autoQuota = ModelQuota(
+            modelName: "Auto + Composer",
+            remainingPercent: autoRemainingPercent,
+            refreshTimeString: refreshTimeString,
+            weeklyLimit: plan.limit,
+            weeklyUsed: plan.used,
+            hourlyLimit: nil,
+            hourlyUsed: nil,
+            usedPercent: autoUsedPercent
+        )
+        
+        let apiQuota = ModelQuota(
+            modelName: "API",
+            remainingPercent: apiRemainingPercent,
+            refreshTimeString: refreshTimeString,
+            weeklyLimit: 100, // percentage based limit
+            weeklyUsed: apiUsedPercent,
+            hourlyLimit: nil,
+            hourlyUsed: nil,
+            usedPercent: apiUsedPercent
+        )
+        
+        let updatedQuotas = [autoQuota, apiQuota]
+        
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            if let index = self.services.firstIndex(where: { $0.name == "Cursor" }) {
+                self.services[index].currentUsage = Double(totalUsedPercent)
+                self.services[index].quotas = updatedQuotas
+                self.logDebug("Updated memory state of Cursor service. currentUsage: \(totalUsedPercent)%")
+            }
+        }
+    }
 
     deinit {
         logDebug("ConfigManager deinit called.")
@@ -1040,4 +1231,22 @@ struct AntigravityModelsResponse: Codable {
         let quotaInfo: QuotaInfo?
     }
     let models: [String: ModelInfo]?
+}
+
+// MARK: - Cursor API Decodables
+struct CursorUsageResponse: Codable {
+    struct IndividualUsage: Codable {
+        struct Plan: Codable {
+            let enabled: Bool?
+            let used: Int?
+            let limit: Int?
+            let remaining: Int?
+            let autoPercentUsed: Double?
+            let apiPercentUsed: Double?
+            let totalPercentUsed: Double?
+        }
+        let plan: Plan?
+    }
+    let billingCycleEnd: String?
+    let individualUsage: IndividualUsage?
 }

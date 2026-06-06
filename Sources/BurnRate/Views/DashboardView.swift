@@ -10,6 +10,9 @@ struct DashboardView: View {
             if let detailService = activeDetailService, detailService.name == "Antigravity" {
                 let currentService = configManager.services.first(where: { $0.id == detailService.id }) ?? detailService
                 AntigravityDetailView(service: currentService, activeDetailService: $activeDetailService)
+            } else if let detailService = activeDetailService, detailService.name == "Cursor" {
+                let currentService = configManager.services.first(where: { $0.id == detailService.id }) ?? detailService
+                CursorDetailView(service: currentService, activeDetailService: $activeDetailService)
             } else if showingSettings {
                 SettingsView(configManager: configManager, isPresented: $showingSettings)
             } else {
@@ -49,6 +52,14 @@ struct DashboardView: View {
                                     activeDetailService = service
                                 }) {
                                     ServiceRowView(service: service, isLinked: configManager.isGoogleLoggedIn)
+                                        .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+                            } else if service.name == "Cursor" {
+                                Button(action: {
+                                    activeDetailService = service
+                                }) {
+                                    ServiceRowView(service: service, isLinked: configManager.isCursorLinked)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)

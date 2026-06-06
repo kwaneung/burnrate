@@ -4,6 +4,9 @@ struct SettingsView: View {
     @ObservedObject var configManager: ConfigManager
     @Binding var isPresented: Bool
     
+    @State private var showCursorAlert = false
+    @State private var cursorAlertMessage = ""
+    
     var body: some View {
         VStack(spacing: 20) {
             // 헤더 (좌측 뒤로가기 버튼)
@@ -82,8 +85,58 @@ struct SettingsView: View {
                             .background(Color.secondary.opacity(configManager.isGoogleLoggedIn ? 0.06 : 0.03))
                             .cornerRadius(8)
                             
+                            // 1-2. Cursor (실제 키체인 연동 카드)
+                            HStack {
+                                Image(systemName: "cursorarrow")
+                                    .font(.title3)
+                                    .foregroundColor(configManager.isCursorLinked ? .blue : .secondary)
+                                    .frame(width: 24)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Cursor")
+                                        .font(.body)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(configManager.isCursorLinked ? .primary : .secondary)
+                                    
+                                    if configManager.isCursorLinked {
+                                        Text("키체인 세션 연동 완료 (사용량 동기화 중)")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    } else {
+                                        Text("키체인에서 로그인 세션을 감지하여 사용량을 실시간 수집합니다.")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                
+                                Spacer()
+                                
+                                if configManager.isCursorLinked {
+                                    Button("연동 해제") {
+                                        configManager.isCursorLinked = false
+                                    }
+                                    .buttonStyle(BorderedButtonStyle())
+                                    .controlSize(.small)
+                                } else {
+                                    Button("연동하기") {
+                                        if KeychainHelper.shared.readString(service: "cursor-access-token", account: "cursor-user") != nil {
+                                            configManager.isCursorLinked = true
+                                        } else {
+                                            cursorAlertMessage = "키체인에서 Cursor 로그인 세션(cursor-access-token)을 찾을 수 없습니다. Cursor 에디터에 로그인되어 있는지 확인해 주세요."
+                                            showCursorAlert = true
+                                        }
+                                    }
+                                    .buttonStyle(BorderedProminentButtonStyle())
+                                    .controlSize(.small)
+                                }
+                            }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Color.secondary.opacity(configManager.isCursorLinked ? 0.06 : 0.03))
+                            .cornerRadius(8)
+                            
                             // 2. 나머지 준비중인 에이전트들
-                            ForEach(["Claude Code", "Codex", "Cursor"], id: \.self) { name in
+                            ForEach(["Claude Code", "Codex"], id: \.self) { name in
                                 HStack {
                                     Image(systemName: iconForService(name))
                                         .font(.title3)
@@ -163,6 +216,9 @@ struct SettingsView: View {
                 .foregroundColor(.red)
             }
             .padding(.bottom)
+        }
+        .alert(isPresented: $showCursorAlert) {
+            Alert(title: Text("연동 실패"), message: Text(cursorAlertMessage), dismissButton: .default(Text("확인")))
         }
     }
     

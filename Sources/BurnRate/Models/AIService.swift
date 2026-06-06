@@ -11,6 +11,9 @@ struct ModelQuota: Identifiable, Codable {
     var weeklyUsed: Int?
     var hourlyLimit: Int?
     var hourlyUsed: Int?
+    
+    // 사용량 퍼센트 (Cursor 등에서 사용)
+    var usedPercent: Int?
 }
 
 struct AIService: Identifiable, Codable {

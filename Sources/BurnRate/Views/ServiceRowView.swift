@@ -28,7 +28,7 @@ struct ServiceRowView: View {
             
             Spacer()
             
-            if service.name == "Antigravity" && isLinked {
+            if (service.name == "Antigravity" || service.name == "Cursor") && isLinked {
                 Image(systemName: "chevron.right")
                     .font(.footnote)
                     .foregroundColor(.secondary)
