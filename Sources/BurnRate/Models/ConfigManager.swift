@@ -16,7 +16,7 @@ class ConfigManager: ObservableObject {
     @Published var googleAccountName: String = "연동 해제됨"
     
     private var fileMonitorSource: DispatchSourceFileSystemObject?
-    private var fileDescriptor: Int32 = -1
+    private var currentLogPath: String?
     private var pollingTimer: Timer?
     private var oauthServer: LocalOAuthServer?
     
@@ -75,9 +75,6 @@ class ConfigManager: ObservableObject {
     }
 
     private func setupDataSynchronization() {
-        stopMonitoring()
-        stopPollingTimer()
-        
         // 1. Antigravity의 로컬 로그 파일 연동 확인
         if let antigravityService = services.first(where: { $0.name == "Antigravity" && $0.isEnabled }),
            let logPath = antigravityService.logFilePath,
@@ -85,43 +82,50 @@ class ConfigManager: ObservableObject {
             
             ensureDefaultLogFileExists(at: logPath)
             
-            let fileManager = FileManager.default
-            if fileManager.fileExists(atPath: logPath) {
-                startFileMonitoring(at: logPath)
+            if currentLogPath != logPath {
+                stopMonitoring()
+                let fileManager = FileManager.default
+                if fileManager.fileExists(atPath: logPath) {
+                    startFileMonitoring(at: logPath)
+                }
             }
+        } else {
+            stopMonitoring()
         }
         
         // 2. Google OAuth 연동이 켜져 있는 서비스들 (예: Claude Code, Codex 등)을 위한 실시간 API 폴링 타이머 가동
-        startPollingTimer()
+        if pollingTimer == nil {
+            startPollingTimer()
+        }
     }
     
     // MARK: - File Monitoring (Antigravity 로컬 감시)
     private func startFileMonitoring(at logPath: String) {
         loadUsageData(from: logPath)
         
-        fileDescriptor = open(logPath, O_EVTONLY)
-        guard fileDescriptor >= 0 else { return }
+        let fd = open(logPath, O_EVTONLY)
+        guard fd >= 0 else { return }
         
-        fileMonitorSource = DispatchSource.makeFileSystemObjectSource(
-            fileDescriptor: fileDescriptor,
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
             eventMask: .write,
             queue: DispatchQueue.global(qos: .background)
         )
         
-        fileMonitorSource?.setEventHandler { [weak self] in
+        source.setEventHandler { [weak self] in
             guard let self = self else { return }
             DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                 self.loadUsageData(from: logPath)
             }
         }
         
-        fileMonitorSource?.setCancelHandler { [weak self] in
-            guard let self = self else { return }
-            close(self.fileDescriptor)
-            self.fileDescriptor = -1
+        source.setCancelHandler {
+            close(fd)
         }
         
-        fileMonitorSource?.resume()
+        self.fileMonitorSource = source
+        self.currentLogPath = logPath
+        source.resume()
         print("Started file monitoring at: \(logPath)")
     }
     
@@ -130,6 +134,7 @@ class ConfigManager: ObservableObject {
             source.cancel()
             fileMonitorSource = nil
         }
+        self.currentLogPath = nil
     }
     
     private func loadUsageData(from path: String) {

@@ -67,19 +67,17 @@ struct DashboardView: View {
                             .foregroundColor(.secondary)
                             .padding(.bottom, 6)
                         
-                        // 수평형 그라데이션 프로그레스 바
+                        // 수평형 프로그레스 바 (그라데이션 및 애니메이션 제거하여 CLI 번들 셰이더 로더 크래시 방지)
                         GeometryReader { geo in
                             ZStack(alignment: .leading) {
                                 RoundedRectangle(cornerRadius: 6)
                                     .fill(Color.secondary.opacity(0.15))
                                     .frame(height: 8)
                                 
+                                let barColor: Color = ratio >= 0.8 ? .red : (ratio >= 0.5 ? .orange : .yellow)
                                 RoundedRectangle(cornerRadius: 6)
-                                    .fill(
-                                        LinearGradient(colors: [.yellow, .orange, .red], startPoint: .leading, endPoint: .trailing)
-                                    )
+                                    .fill(barColor)
                                     .frame(width: geo.size.width * CGFloat(min(ratio, 1.0)), height: 8)
-                                    .animation(.spring(), value: ratio)
                             }
                         }
                         .frame(height: 8)
