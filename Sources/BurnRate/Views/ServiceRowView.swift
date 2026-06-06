@@ -28,18 +28,9 @@ struct ServiceRowView: View {
             
             Spacer()
             
-            if isLinked {
-                HStack(spacing: 2) {
-                    Text(String(format: "%.0f", service.currentUsage))
-                        .fontWeight(.bold)
-                    Text("/")
-                        .foregroundColor(.secondary)
-                    Text(String(format: "%.0f", service.totalLimit))
-                        .foregroundColor(.secondary)
-                }
-                .font(.system(.body, design: .rounded))
-            } else {
-                Text("—")
+            if service.name == "Antigravity" && isLinked {
+                Image(systemName: "chevron.right")
+                    .font(.footnote)
                     .foregroundColor(.secondary)
             }
         }
