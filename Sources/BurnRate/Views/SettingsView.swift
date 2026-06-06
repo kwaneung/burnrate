@@ -30,6 +30,49 @@ struct SettingsView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Google 계정 연동 섹션
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("Google 계정 연동 (사용량 수집)")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        
+                        HStack(spacing: 12) {
+                            Image(systemName: configManager.isGoogleLoggedIn ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.xmark")
+                                .font(.title2)
+                                .foregroundColor(configManager.isGoogleLoggedIn ? .green : .secondary)
+                            
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text(configManager.googleAccountName)
+                                    .font(.body)
+                                    .fontWeight(.medium)
+                                Text(configManager.isGoogleLoggedIn ? "구글 클라우드 사용량 실시간 동기화 중" : "Claude Code, Codex, Cursor 연동을 위해 로그인하세요.")
+                                    .font(.caption2)
+                                    .foregroundColor(.secondary)
+                            }
+                            
+                            Spacer()
+                            
+                            if configManager.isGoogleLoggedIn {
+                                Button("로그아웃") {
+                                    configManager.logoutGoogle()
+                                }
+                                .buttonStyle(.bordered)
+                                .controlSize(.small)
+                            } else {
+                                Button("로그인") {
+                                    configManager.startGoogleLogin()
+                                }
+                                .buttonStyle(.borderedProminent)
+                                .controlSize(.small)
+                            }
+                        }
+                        .padding()
+                        .background(Color.secondary.opacity(0.06))
+                        .cornerRadius(12)
+                    }
+                    
+                    Divider()
+                    
                     // AI 서비스 리스트 및 연동 설정
                     Text("AI 서비스 연동")
                         .font(.subheadline)

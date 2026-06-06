@@ -5,6 +5,12 @@ struct ModelQuota: Identifiable, Codable {
     let modelName: String
     var remainingPercent: Int // 잔여량 (예: 80 = 80% 남음)
     var refreshTimeString: String // 예: "3h 18m" 또는 "Available"
+    
+    // 상세 주간 및 시간당(5시간) 쿼터 정보 추가
+    var weeklyLimit: Int?
+    var weeklyUsed: Int?
+    var hourlyLimit: Int?
+    var hourlyUsed: Int?
 }
 
 struct AIService: Identifiable, Codable {
@@ -26,18 +32,9 @@ struct AIService: Identifiable, Codable {
                 name: "Antigravity",
                 isEnabled: true,
                 logFilePath: defaultAntigravityPath,
-                currentUsage: 20.0, // 대표 소진율 20% (가장 많이 소진된 쿼터 기준)
+                currentUsage: 0.0, // 모킹 제거: 초기에는 0으로 시작
                 totalLimit: 100.0,
-                quotas: [
-                    ModelQuota(modelName: "Gemini 3.5 Flash (Medium)", remainingPercent: 80, refreshTimeString: "3h 18m"),
-                    ModelQuota(modelName: "Gemini 3.5 Flash (High)", remainingPercent: 80, refreshTimeString: "3h 18m"),
-                    ModelQuota(modelName: "Gemini 3.5 Flash (Low)", remainingPercent: 80, refreshTimeString: "3h 18m"),
-                    ModelQuota(modelName: "Gemini 3.1 Pro (Low)", remainingPercent: 80, refreshTimeString: "3h 18m"),
-                    ModelQuota(modelName: "Gemini 3.1 Pro (High)", remainingPercent: 80, refreshTimeString: "3h 18m"),
-                    ModelQuota(modelName: "Claude Sonnet 4.6 (Thinking)", remainingPercent: 100, refreshTimeString: "Available"),
-                    ModelQuota(modelName: "Claude Opus 4.6 (Thinking)", remainingPercent: 100, refreshTimeString: "Available"),
-                    ModelQuota(modelName: "GPT-OSS 120B (Medium)", remainingPercent: 100, refreshTimeString: "Available")
-                ]
+                quotas: [] // 모킹 제거: 실제 연동 데이터 로드 전에는 비어있음
             ),
             AIService(name: "Claude Code", isEnabled: false, currentUsage: 0.0, totalLimit: 200.0),
             AIService(name: "Codex", isEnabled: false, currentUsage: 0.0, totalLimit: 150.0),

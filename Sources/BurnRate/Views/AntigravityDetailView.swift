@@ -71,6 +71,36 @@ struct AntigravityDetailView: View {
                                     }
                                 }
                                 .font(.system(size: 10, design: .monospaced))
+                                
+                                // 주간 및 5시간 쿼터 상세 프로그레스
+                                if quota.weeklyLimit != nil || quota.hourlyLimit != nil {
+                                    VStack(alignment: .leading, spacing: 4) {
+                                        if let wLimit = quota.weeklyLimit, let wUsed = quota.weeklyUsed {
+                                            HStack {
+                                                Text("Weekly Used")
+                                                    .font(.system(size: 9, design: .monospaced))
+                                                    .foregroundColor(.secondary)
+                                                Spacer()
+                                                Text("\(wUsed) / \(wLimit)")
+                                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                            }
+                                            SimpleMiniProgressBar(value: Double(wUsed), total: Double(wLimit))
+                                        }
+                                        
+                                        if let hLimit = quota.hourlyLimit, let hUsed = quota.hourlyUsed {
+                                            HStack {
+                                                Text("5-Hour Used")
+                                                    .font(.system(size: 9, design: .monospaced))
+                                                    .foregroundColor(.secondary)
+                                                Spacer()
+                                                Text("\(hUsed) / \(hLimit)")
+                                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
+                                            }
+                                            SimpleMiniProgressBar(value: Double(hUsed), total: Double(hLimit))
+                                        }
+                                    }
+                                    .padding(.top, 4)
+                                }
                             }
                             .padding(.horizontal, 4)
                         }
@@ -106,5 +136,26 @@ struct SegmentedProgressBar: View {
                     .fill(isActive ? Color.green : Color.secondary.opacity(0.18))
             }
         }
+    }
+}
+
+// 주간 / 시간당 사용율을 표시하는 심플 프로그레스 바
+struct SimpleMiniProgressBar: View {
+    let value: Double
+    let total: Double
+    
+    var body: some View {
+        GeometryReader { geo in
+            let ratio = total > 0 ? value / total : 0.0
+            ZStack(alignment: .leading) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.secondary.opacity(0.12))
+                
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(ratio > 0.8 ? Color.red : (ratio > 0.5 ? Color.orange : Color.blue))
+                    .frame(width: geo.size.width * CGFloat(min(ratio, 1.0)))
+            }
+        }
+        .frame(height: 4)
     }
 }
