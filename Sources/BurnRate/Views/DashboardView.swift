@@ -89,29 +89,7 @@ struct DashboardView: View {
                         }
                     }
                     
-                    // 최근 호출 로그 내역
-                    if configManager.services.first(where: { $0.name == "Antigravity" && $0.isEnabled }) != nil,
-                       !configManager.usageData.logs.isEmpty {
-                        Section(header: Text("최근 호출 내역 (Antigravity)").font(.caption).foregroundColor(.secondary)) {
-                            ForEach(configManager.usageData.logs.suffix(5).reversed()) { log in
-                                HStack {
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text(log.model)
-                                            .font(.caption)
-                                            .fontWeight(.medium)
-                                        Text(formatTimestamp(log.timestamp))
-                                            .font(.system(size: 9))
-                                            .foregroundColor(.secondary)
-                                    }
-                                    Spacer()
-                                    Text(String(format: "$%.4f", log.cost))
-                                        .font(.system(.caption, design: .rounded))
-                                        .foregroundColor(.secondary)
-                                }
-                                .padding(.vertical, 2)
-                            }
-                        }
-                    }
+                    // 최근 호출 로그 내역 섹션 제거됨
                 }
                 .listStyle(.sidebar)
                 
@@ -133,14 +111,5 @@ struct DashboardView: View {
             }
         }
         .frame(width: 280, height: 420)
-    }
-    
-    private func formatTimestamp(_ isoString: String) -> String {
-        let formatter = ISO8601DateFormatter()
-        guard let date = formatter.date(from: isoString) else { return isoString }
-        
-        let outputFormatter = DateFormatter()
-        outputFormatter.dateFormat = "HH:mm:ss"
-        return outputFormatter.string(from: date)
     }
 }

@@ -125,39 +125,17 @@ class ConfigManager: ObservableObject {
     private func startMockTimer() {
         print("Started mock data simulation timer.")
         // 앱이 켜졌을 때 초기 mock 데이터 세팅
-        self.usageData = UsageData(totalSpent: 0.15, logs: [
-            UsageLog(timestamp: Date().addingTimeInterval(-300).iso8601String, model: "gemini-1.5-pro", inputTokens: 1200, outputTokens: 450, cost: 0.08),
-            UsageLog(timestamp: Date().addingTimeInterval(-150).iso8601String, model: "gemini-1.5-flash", inputTokens: 5400, outputTokens: 800, cost: 0.07)
-        ])
+        self.usageData = UsageData(totalSpent: 0.15)
         
         mockTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            let models = ["gemini-1.5-pro", "gemini-1.5-flash", "claude-3-5-sonnet", "gpt-4o"]
-            let randomModel = models.randomElement() ?? "gemini-1.5-flash"
-            let inputTokens = Int.random(in: 500...8000)
-            let outputTokens = Int.random(in: 100...2000)
             let cost = Double.random(in: 0.01...0.35)
             
             DispatchQueue.main.async {
                 var currentData = self.usageData
                 currentData.totalSpent += cost
-                
-                let newLog = UsageLog(
-                    timestamp: Date().iso8601String,
-                    model: randomModel,
-                    inputTokens: inputTokens,
-                    outputTokens: outputTokens,
-                    cost: cost
-                )
-                currentData.logs.push(newLog)
-                
-                // 최근 30개까지만 유지
-                if currentData.logs.count > 30 {
-                    currentData.logs.removeFirst()
-                }
-                
                 self.usageData = currentData
-                print("Mock usage added: \(randomModel) ($ \(String(format: "%.4f", cost))) -> Total: $\(String(format: "%.4f", currentData.totalSpent))")
+                print("Mock usage added: $ \(String(format: "%.4f", cost)) -> Total: $\(String(format: "%.4f", currentData.totalSpent))")
             }
         }
     }
