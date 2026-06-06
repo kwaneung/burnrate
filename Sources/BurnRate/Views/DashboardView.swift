@@ -95,8 +95,8 @@ struct DashboardView: View {
                 // 서비스 리스트 영역
                 List {
                     Section(header: Text("연동된 AI").font(.caption).foregroundColor(.secondary)) {
-                        ForEach(configManager.services) { service in
-                            if service.isEnabled && service.name == "Antigravity" {
+                        ForEach(configManager.services.filter(\.isEnabled)) { service in
+                            if service.name == "Antigravity" {
                                 Button(action: {
                                     activeDetailService = service
                                 }) {

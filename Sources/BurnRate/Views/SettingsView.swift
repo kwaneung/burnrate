@@ -73,8 +73,8 @@ struct SettingsView: View {
                     
                     Divider()
                     
-                    // AI 서비스 리스트 및 연동 설정
-                    Text("AI 서비스 연동")
+                    // 대시보드 노출 설정
+                    Text("대시보드 노출 설정")
                         .font(.subheadline)
                         .fontWeight(.semibold)
                     
