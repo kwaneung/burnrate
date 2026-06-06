@@ -73,14 +73,58 @@ struct SettingsView: View {
                     
                     Divider()
                     
-                    // 에이전트 개별 연동 섹션 (준비중)
+                    // 에이전트 개별 연동 섹션 (Antigravity는 활성화, 나머지는 준비중)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("에이전트 개별 연동")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         
                         VStack(spacing: 8) {
-                            ForEach(["Antigravity", "Claude Code", "Codex", "Cursor"], id: \.self) { name in
+                            // 1. Antigravity (실제 활성화된 연동 카드)
+                            if let antiIndex = configManager.services.firstIndex(where: { $0.name == "Antigravity" }) {
+                                let isAntiEnabled = configManager.services[antiIndex].isEnabled
+                                HStack {
+                                    Image(systemName: "sparkles")
+                                        .font(.title3)
+                                        .foregroundColor(isAntiEnabled ? .orange : .secondary)
+                                        .frame(width: 24)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text("Antigravity")
+                                            .font(.body)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(isAntiEnabled ? .primary : .secondary)
+                                        Text(isAntiEnabled ? "로컬 api_usage.json 파일 실시간 동기화 중" : "로컬 파일 연동이 비활성화됨")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    if isAntiEnabled {
+                                        Button("연동 해제") {
+                                            configManager.services[antiIndex].isEnabled.toggle()
+                                            configManager.saveServices()
+                                        }
+                                        .buttonStyle(BorderedButtonStyle())
+                                        .controlSize(.small)
+                                    } else {
+                                        Button("연동하기") {
+                                            configManager.services[antiIndex].isEnabled.toggle()
+                                            configManager.saveServices()
+                                        }
+                                        .buttonStyle(BorderedProminentButtonStyle())
+                                        .controlSize(.small)
+                                    }
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(Color.secondary.opacity(isAntiEnabled ? 0.06 : 0.03))
+                                .cornerRadius(8)
+                            }
+                            
+                            // 2. 나머지 준비중인 에이전트들
+                            ForEach(["Claude Code", "Codex", "Cursor"], id: \.self) { name in
                                 HStack {
                                     Image(systemName: iconForService(name))
                                         .font(.title3)
@@ -123,24 +167,24 @@ struct SettingsView: View {
                         .fontWeight(.semibold)
                     
                     ForEach(0..<configManager.services.count, id: \.self) { index in
-                        VStack(alignment: .leading, spacing: 8) {
-                            HStack {
-                                Toggle(isOn: Binding(
-                                    get: { configManager.services[index].isEnabled },
-                                    set: { configManager.services[index].isEnabled = $0 }
-                                )) {
-                                    Text(configManager.services[index].name)
-                                        .font(.body)
-                                        .fontWeight(.medium)
+                        if configManager.services[index].name != "Antigravity" {
+                            VStack(alignment: .leading, spacing: 8) {
+                                HStack {
+                                    Toggle(isOn: Binding(
+                                        get: { configManager.services[index].isEnabled },
+                                        set: { configManager.services[index].isEnabled = $0 }
+                                    )) {
+                                        Text(configManager.services[index].name)
+                                            .font(.body)
+                                            .fontWeight(.medium)
+                                    }
+                                    .toggleStyle(.checkbox)
+                                    
+                                    Spacer()
                                 }
-                                .toggleStyle(.checkbox)
-                                
-                                Spacer()
                             }
-                            
-
+                            .padding(.vertical, 4)
                         }
-                        .padding(.vertical, 4)
                     }
                 }
                 .padding(.horizontal)
