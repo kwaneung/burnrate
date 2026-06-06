@@ -1,8 +1,8 @@
 # 🐱 BurnRate: macOS Status Bar App Specification
 
-`BurnRate`는 개발자와 AI 사용자가 실시간으로 AI API 사용량 및 비용을 모니터링할 수 있도록 돕는 **macOS 네이티브 상태바(Status Bar) 앱**입니다. 
+`BurnRate`는 개발자가 일상적으로 사용하는 주요 AI 코딩 에이전트들의 월 구독료 및 크레딧 소진율(Burn Rate)을 실시간으로 모니터링하고 시각화할 수 있도록 돕는 **macOS 네이티브 상태바(Status Bar) 앱**입니다. 
 
-메뉴바에 상주하며, 클릭 시 미니 대시보드를 띄워 연동된 AI 서비스들의 사용량 통계를 시각화합니다. 사용자가 설정한 예산 대비 소진율에 따라 상태바 아이콘의 캐릭터 상태가 역동적으로 변화합니다.
+메뉴바에 상주하며, 클릭 시 미니 대시보드를 띄워 연동된 에이전트들의 사용량 통계와 잔여 크레딧을 직관적으로 보여줍니다. 사용자가 설정한 한도 또는 일일 예산 대비 소진율에 따라 상태바 아이콘의 캐릭터 상태가 역동적으로 변화합니다.
 
 ---
 
@@ -12,10 +12,15 @@
 *   **패키지 구조**: Swift Package Manager (SPM) 단일 실행 바이너리 패키지
 *   **핵심 기능**:
     *   **상태바 상주**: Dock에 나타나지 않고 macOS 상단 메뉴바에만 표시되는 백그라운드 에이전트.
-    *   **실시간 애니메이션**: 자금 소진율(Burn Rate)에 따라 캐릭터(고양이)가 뛰거나 땀 흘리고, 결국 불타는 시각적 효과 제공.
-    *   **통합 대시보드 Window**: 클릭 시 각 AI 서비스별 토큰 사용량, 총 누적 요금, 잔여 예산 통계를 원형 게이지와 리스트로 직관적 시각화.
-    *   **다중 AI 연동 설정**: 다양한 AI 서비스들의 API 키 등록 또는 로그인을 통해 다중 계정의 실시간 사용량을 한곳에서 확인.
-*   **첫 번째 연동 타겟**: **Antigravity CLI (Agentic AI Coding Assistant)**
+    *   **실시간 애니메이션**: 구독 크레딧 소진율(Burn Rate)에 따라 캐릭터(고양이)가 뛰거나 땀 흘리고, 결국 불타는 시각적 효과 제공.
+    *   **통합 대시보드 Window**: 클릭 시 각 AI 에이전트별 누적 사용액, 소진율(%), 잔여 예산 통계를 원형 게이지와 리스트로 직관적 시각화.
+    *   **다중 에이전트 연동**: 사용 중인 AI 에이전트 계정 연동을 통해 한곳에서 전체 크레딧 소모 추이를 파악.
+    *   **키체인 보안**: API Key 및 OAuth 액세스 토큰은 macOS **Keychain**을 활용해 암호화하여 안전하게 저장.
+*   **연동 타겟 (4대 AI 코딩 에이전트)**:
+    1.  **Antigravity** (자율 AI 코딩 어시스턴트)
+    2.  **Claude Code** (Anthropic CLI 코딩 에이전트)
+    3.  **Cursor** (AI 네이티브 에디터)
+    4.  **GitHub Copilot** (구독 및 사용량 기반 코딩 어시스턴트)
 
 ---
 
@@ -27,19 +32,21 @@ graph TD
     B -->|MenuBarExtra Window| C[SwiftUI Dashboard View]
     B -->|설정 화면| D[SwiftUI Settings View]
     
-    %% 연동 대상들
-    D -->|1. Antigravity 연동| E[Local Log Monitor]
-    F[Antigravity CLI / Agent] -->|사용량 기록| G[(Local Log / JSON)]
-    E -->|실시간 파일 모니터링| G
-    E -->|데이터 파싱| B
+    %% 계정 연동 및 API 동기화
+    D -->|OAuth / Access Token 연동| E[Keychain Secure Storage]
+    E -->|인증 자격증명 조회| B
     
-    %% 클라우드 API
-    D -->|2. Cloud API 연동| H[OpenAI / Anthropic / Gemini Cloud API]
+    %% 외부 에이전트 서버들
+    B -->|1. Usage API 조회| F[Antigravity Cloud]
+    B -->|2. Usage API 조회| G[Anthropic Cloud - Claude Code]
+    B -->|3. Usage API 조회| H[Cursor Cloud]
+    B -->|4. Usage API 조회| I[GitHub Copilot Cloud]
 ```
 
-### 2.1 연동 개념
-*   **로컬 에이전트 연동**: Antigravity CLI 등 로컬에서 실행되는 AI 에이전트의 로그(JSON 등)를 감시하여 사용량과 비용을 실시간 반영합니다.
-*   **클라우드 API 연동**: OpenAI, Anthropic 등 주요 AI 서비스의 API 키나 사용자 계정을 등록하여 사용량 API를 직접 호출하거나 통합적으로 모니터링할 수 있도록 확장해 나갑니다.
+### 2.1 연동 메커니즘 (구독 요금 및 크레딧 동기화)
+*   **계정 및 API 연동**: 사용자가 설정창에서 각 에이전트 계정 로그인(OAuth) 또는 API Key 입력을 수행하면, 인증 자격 증명(Access Token)이 macOS Keychain에 암호화 보관됩니다.
+*   **백그라운드 동기화**: `BurnRate` 앱이 주기적으로 각 에이전트 사의 사용량 조회 API 엔드포인트를 호출하여, 사용자의 현재 요금제 대비 오늘/이번 달 소모 크레딧 및 잔여 요금을 동기화합니다.
+*   **단일화된 사용량 처리**: 로컬 로그 감시나 복잡한 프록시 중계 대신, 각 서버로부터 수집한 **누적 비용 및 소진율(%)**을 하나의 통일된 수치(`totalSpent` / 소진율)로 처리하여 UI에 일관되게 표현합니다.
 
 ---
 
