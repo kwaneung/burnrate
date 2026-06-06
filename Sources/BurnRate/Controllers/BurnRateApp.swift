@@ -45,11 +45,6 @@ struct BurnRateApp: App {
     private var currentFrameName: String {
         let rate = burnRate
         
-        if rate >= 1.0 {
-            // 예산 초과
-            return hasLocalAsset(name: "cat_dead") ? "cat_dead" : "xmark.octagon.fill"
-        }
-        
         let baseName: String
         if rate >= 0.8 {
             baseName = "cat_fire"
