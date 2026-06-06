@@ -30,98 +30,57 @@ struct SettingsView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // Google 계정 연동 섹션
-                    VStack(alignment: .leading, spacing: 8) {
-                        Text("Google 계정 연동 (사용량 수집)")
-                            .font(.subheadline)
-                            .fontWeight(.semibold)
-                        
-                        HStack(spacing: 12) {
-                            Image(systemName: configManager.isGoogleLoggedIn ? "person.crop.circle.badge.checkmark" : "person.crop.circle.badge.xmark")
-                                .font(.title2)
-                                .foregroundColor(configManager.isGoogleLoggedIn ? .green : .secondary)
-                            
-                            VStack(alignment: .leading, spacing: 2) {
-                                Text(configManager.googleAccountName)
-                                    .font(.body)
-                                    .fontWeight(.medium)
-                                Text(configManager.isGoogleLoggedIn ? "구글 클라우드 사용량 실시간 동기화 중" : "Claude Code, Codex, Cursor 연동을 위해 로그인하세요.")
-                                    .font(.caption2)
-                                    .foregroundColor(.secondary)
-                            }
-                            
-                            Spacer()
-                            
-                            if configManager.isGoogleLoggedIn {
-                                Button("로그아웃") {
-                                    configManager.logoutGoogle()
-                                }
-                                .buttonStyle(.bordered)
-                                .controlSize(.small)
-                            } else {
-                                Button("로그인") {
-                                    configManager.startGoogleLogin()
-                                }
-                                .buttonStyle(.borderedProminent)
-                                .controlSize(.small)
-                            }
-                        }
-                        .padding()
-                        .background(Color.secondary.opacity(0.06))
-                        .cornerRadius(12)
-                    }
-                    
-                    Divider()
-                    
-                    // 에이전트 개별 연동 섹션 (Antigravity는 활성화, 나머지는 준비중)
+                    // 에이전트 개별 연동 섹션 (Antigravity는 실제 구글 로그인 연동 버튼으로 기능 할당)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("에이전트 개별 연동")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         
                         VStack(spacing: 8) {
-                            // 1. Antigravity (실제 활성화된 연동 카드)
-                            if let antiIndex = configManager.services.firstIndex(where: { $0.name == "Antigravity" }) {
-                                let isAntiEnabled = configManager.services[antiIndex].isEnabled
-                                HStack {
-                                    Image(systemName: "sparkles")
-                                        .font(.title3)
-                                        .foregroundColor(isAntiEnabled ? .orange : .secondary)
-                                        .frame(width: 24)
+                            // 1. Antigravity (실제 활성화된 구글 OAuth 연동 카드)
+                            HStack {
+                                Image(systemName: "sparkles")
+                                    .font(.title3)
+                                    .foregroundColor(configManager.isGoogleLoggedIn ? .orange : .secondary)
+                                    .frame(width: 24)
+                                
+                                VStack(alignment: .leading, spacing: 2) {
+                                    Text("Antigravity")
+                                        .font(.body)
+                                        .fontWeight(.medium)
+                                        .foregroundColor(configManager.isGoogleLoggedIn ? .primary : .secondary)
                                     
-                                    VStack(alignment: .leading, spacing: 2) {
-                                        Text("Antigravity")
-                                            .font(.body)
-                                            .fontWeight(.medium)
-                                            .foregroundColor(isAntiEnabled ? .primary : .secondary)
-                                        Text(isAntiEnabled ? "로컬 api_usage.json 파일 실시간 동기화 중" : "로컬 파일 연동이 비활성화됨")
+                                    if configManager.isGoogleLoggedIn {
+                                        Text("\(configManager.googleAccountName) 계정 연동 완료 (사용량 동기화 중)")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary)
+                                    } else {
+                                        Text("구글 계정을 연동하여 사용량을 실시간 수집합니다.")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     }
-                                    
-                                    Spacer()
-                                    
-                                    if isAntiEnabled {
-                                        Button("연동 해제") {
-                                            configManager.services[antiIndex].isEnabled.toggle()
-                                            configManager.saveServices()
-                                        }
-                                        .buttonStyle(BorderedButtonStyle())
-                                        .controlSize(.small)
-                                    } else {
-                                        Button("연동하기") {
-                                            configManager.services[antiIndex].isEnabled.toggle()
-                                            configManager.saveServices()
-                                        }
-                                        .buttonStyle(BorderedProminentButtonStyle())
-                                        .controlSize(.small)
-                                    }
                                 }
-                                .padding(.vertical, 8)
-                                .padding(.horizontal, 12)
-                                .background(Color.secondary.opacity(isAntiEnabled ? 0.06 : 0.03))
-                                .cornerRadius(8)
+                                
+                                Spacer()
+                                
+                                if configManager.isGoogleLoggedIn {
+                                    Button("연동 해제") {
+                                        configManager.logoutGoogle()
+                                    }
+                                    .buttonStyle(BorderedButtonStyle())
+                                    .controlSize(.small)
+                                } else {
+                                    Button("연동하기") {
+                                        configManager.startGoogleLogin()
+                                    }
+                                    .buttonStyle(BorderedProminentButtonStyle())
+                                    .controlSize(.small)
+                                }
                             }
+                            .padding(.vertical, 8)
+                            .padding(.horizontal, 12)
+                            .background(Color.secondary.opacity(configManager.isGoogleLoggedIn ? 0.06 : 0.03))
+                            .cornerRadius(8)
                             
                             // 2. 나머지 준비중인 에이전트들
                             ForEach(["Claude Code", "Codex", "Cursor"], id: \.self) { name in
@@ -167,24 +126,22 @@ struct SettingsView: View {
                         .fontWeight(.semibold)
                     
                     ForEach(0..<configManager.services.count, id: \.self) { index in
-                        if configManager.services[index].name != "Antigravity" {
-                            VStack(alignment: .leading, spacing: 8) {
-                                HStack {
-                                    Toggle(isOn: Binding(
-                                        get: { configManager.services[index].isEnabled },
-                                        set: { configManager.services[index].isEnabled = $0 }
-                                    )) {
-                                        Text(configManager.services[index].name)
-                                            .font(.body)
-                                            .fontWeight(.medium)
-                                    }
-                                    .toggleStyle(.checkbox)
-                                    
-                                    Spacer()
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Toggle(isOn: Binding(
+                                    get: { configManager.services[index].isEnabled },
+                                    set: { configManager.services[index].isEnabled = $0 }
+                                )) {
+                                    Text(configManager.services[index].name)
+                                        .font(.body)
+                                        .fontWeight(.medium)
                                 }
+                                .toggleStyle(.checkbox)
+                                
+                                Spacer()
                             }
-                            .padding(.vertical, 4)
                         }
+                        .padding(.vertical, 4)
                     }
                 }
                 .padding(.horizontal)
