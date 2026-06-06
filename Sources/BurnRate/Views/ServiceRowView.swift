@@ -44,10 +44,12 @@ struct ServiceRowView: View {
         switch service.name {
         case "Antigravity":
             return "sparkles"
-        case "OpenAI":
+        case "Claude Code":
+            return "terminal"
+        case "Cursor":
+            return "cursorarrow"
+        case "GitHub Copilot":
             return "cpu"
-        case "Anthropic":
-            return "brain"
         default:
             return "questionmark.circle"
         }

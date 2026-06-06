@@ -84,7 +84,16 @@ struct DashboardView: View {
                 List {
                     Section(header: Text("연동된 AI").font(.caption).foregroundColor(.secondary)) {
                         ForEach(configManager.services) { service in
-                            let spent = service.name == "Antigravity" ? configManager.usageData.totalSpent : 0.0
+                            let spent: Double = {
+                                guard service.isEnabled else { return 0.0 }
+                                switch service.name {
+                                case "Antigravity": return configManager.usageData.totalSpent
+                                case "Claude Code": return configManager.usageData.totalSpent * 0.4
+                                case "Cursor": return configManager.usageData.totalSpent * 0.6
+                                case "GitHub Copilot": return configManager.usageData.totalSpent * 0.3
+                                default: return 0.0
+                                }
+                            }()
                             ServiceRowView(service: service, spent: spent)
                         }
                     }
