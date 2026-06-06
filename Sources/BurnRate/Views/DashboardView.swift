@@ -89,8 +89,8 @@ struct DashboardView: View {
                                 switch service.name {
                                 case "Antigravity": return configManager.usageData.totalSpent
                                 case "Claude Code": return configManager.usageData.totalSpent * 0.4
-                                case "Cursor Agent": return configManager.usageData.totalSpent * 0.6
-                                case "GitHub Copilot": return configManager.usageData.totalSpent * 0.3
+                                case "Codex": return configManager.usageData.totalSpent * 0.3
+                                case "Cursor": return configManager.usageData.totalSpent * 0.6
                                 default: return 0.0
                                 }
                             }()

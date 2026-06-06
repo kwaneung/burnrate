@@ -33,10 +33,12 @@ class ConfigManager: ObservableObject {
     
     private func loadServices() {
         if let data = UserDefaults.standard.data(forKey: "BurnRate_Services"),
-           let decoded = try? JSONDecoder().decode([AIService].self, from: data) {
+           let decoded = try? JSONDecoder().decode([AIService].self, from: data),
+           decoded.contains(where: { $0.name == "Codex" || $0.name == "Cursor" }) {
             self.services = decoded
         } else {
             self.services = AIService.defaultServices
+            saveServices()
         }
     }
     

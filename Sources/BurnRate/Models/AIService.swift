@@ -14,8 +14,8 @@ struct AIService: Identifiable, Codable {
         return [
             AIService(name: "Antigravity", isEnabled: true, logFilePath: defaultAntigravityPath),
             AIService(name: "Claude Code", isEnabled: false),
-            AIService(name: "Cursor Agent", isEnabled: false),
-            AIService(name: "GitHub Copilot", isEnabled: false)
+            AIService(name: "Codex", isEnabled: false),
+            AIService(name: "Cursor", isEnabled: false)
         ]
     }
 }
