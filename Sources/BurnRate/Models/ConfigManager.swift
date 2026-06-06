@@ -98,13 +98,27 @@ class ConfigManager: ObservableObject {
             try? fileManager.createDirectory(at: directoryURL, withIntermediateDirectories: true, attributes: nil)
         }
         
-        // 파일이 없으면 기본 쿼터 JSON 작성
+        let defaultQuotas = [
+            ModelQuota(modelName: "Gemini 3.5 Flash (Medium)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 1000, weeklyUsed: 0, hourlyLimit: 50, hourlyUsed: 0),
+            ModelQuota(modelName: "Gemini 3.5 Flash (High)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 500, weeklyUsed: 0, hourlyLimit: 20, hourlyUsed: 0),
+            ModelQuota(modelName: "Gemini 3.5 Flash (Low)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 2000, weeklyUsed: 0, hourlyLimit: 100, hourlyUsed: 0),
+            ModelQuota(modelName: "Gemini 3.1 Pro (Low)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 1500, weeklyUsed: 0, hourlyLimit: 75, hourlyUsed: 0),
+            ModelQuota(modelName: "Gemini 3.1 Pro (High)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 800, weeklyUsed: 0, hourlyLimit: 40, hourlyUsed: 0),
+            ModelQuota(modelName: "Claude Sonnet 4.6 (Thinking)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 300, weeklyUsed: 0, hourlyLimit: 15, hourlyUsed: 0),
+            ModelQuota(modelName: "Claude Opus 4.6 (Thinking)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 100, weeklyUsed: 0, hourlyLimit: 5, hourlyUsed: 0),
+            ModelQuota(modelName: "GPT-OSS 120B (Medium)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 600, weeklyUsed: 0, hourlyLimit: 30, hourlyUsed: 0)
+        ]
+        
+        var shouldWriteDefault = false
         if !fileManager.fileExists(atPath: path) {
-            let defaultQuotas = [
-                ModelQuota(modelName: "Gemini 3.5 Flash (Medium)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 1000, weeklyUsed: 0, hourlyLimit: 50, hourlyUsed: 0),
-                ModelQuota(modelName: "Gemini 3.5 Flash (High)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 500, weeklyUsed: 0, hourlyLimit: 20, hourlyUsed: 0),
-                ModelQuota(modelName: "Claude Sonnet 4.6 (Thinking)", remainingPercent: 100, refreshTimeString: "Available", weeklyLimit: 300, weeklyUsed: 0, hourlyLimit: 15, hourlyUsed: 0)
-            ]
+            shouldWriteDefault = true
+        } else if let data = try? Data(contentsOf: url),
+                  let decoded = try? JSONDecoder().decode(UsageData.self, from: data),
+                  decoded.quotas.count < 8 {
+            shouldWriteDefault = true
+        }
+        
+        if shouldWriteDefault {
             let defaultData = UsageData(totalSpent: 0.0, quotas: defaultQuotas)
             if let encoded = try? JSONEncoder().encode(defaultData) {
                 try? encoded.write(to: url)
