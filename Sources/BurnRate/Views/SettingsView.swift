@@ -94,22 +94,7 @@ struct SettingsView: View {
                                 Spacer()
                             }
                             
-                            // Antigravity 파일 경로 설정
-                            if configManager.services[index].name == "Antigravity" && configManager.services[index].isEnabled {
-                                VStack(alignment: .leading, spacing: 4) {
-                                    Text("로그 파일 경로 (api_usage.json)")
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                    
-                                    TextField("Log File Path", text: Binding(
-                                        get: { configManager.services[index].logFilePath ?? "" },
-                                        set: { configManager.services[index].logFilePath = $0.isEmpty ? nil : $0 }
-                                    ))
-                                    .textFieldStyle(.roundedBorder)
-                                    .font(.system(.caption, design: .monospaced))
-                                }
-                                .padding(.leading, 24)
-                            }
+
                         }
                         .padding(.vertical, 4)
                     }
