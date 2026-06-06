@@ -46,7 +46,7 @@ struct ServiceRowView: View {
             return "sparkles"
         case "Claude Code":
             return "terminal"
-        case "Cursor":
+        case "Cursor Agent":
             return "cursorarrow"
         case "GitHub Copilot":
             return "cpu"
