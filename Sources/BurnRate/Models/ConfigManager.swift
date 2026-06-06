@@ -219,22 +219,46 @@ class ConfigManager: ObservableObject {
         request.httpBody = body.data(using: .utf8)
         
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
-            guard let self = self, let data = data, error == nil else { return }
+            guard let self = self else { return }
+            if let error = error {
+                print("❌ OAuth Token Exchange Network Error: \(error.localizedDescription)")
+                return
+            }
+            guard let data = data else {
+                print("❌ OAuth Token Exchange Error: No data received")
+                return
+            }
             
-            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-               let accessToken = json["access_token"] as? String {
-                
-                _ = KeychainHelper.shared.saveString(accessToken, service: self.keychainService, account: self.keychainAccountToken)
-                
-                if let refreshToken = json["refresh_token"] as? String {
-                    _ = KeychainHelper.shared.saveString(refreshToken, service: self.keychainService, account: self.keychainAccountRefresh)
+            if let httpResponse = response as? HTTPURLResponse {
+                print("ℹ️ OAuth Token Exchange Status Code: \(httpResponse.statusCode)")
+            }
+            
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("ℹ️ OAuth Token Exchange Response Body: \(responseString)")
+            }
+            
+            if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
+                if let accessToken = json["access_token"] as? String {
+                    _ = KeychainHelper.shared.saveString(accessToken, service: self.keychainService, account: self.keychainAccountToken)
+                    
+                    if let refreshToken = json["refresh_token"] as? String {
+                        _ = KeychainHelper.shared.saveString(refreshToken, service: self.keychainService, account: self.keychainAccountRefresh)
+                    }
+                    
+                    DispatchQueue.main.async {
+                        self.isGoogleLoggedIn = true
+                        self.fetchUserProfile(token: accessToken)
+                        self.setupDataSynchronization() // 연동 즉시 데이터 수집 재가동
+                    }
+                } else if let errorDescription = json["error_description"] as? String {
+                    print("❌ OAuth Token Exchange Error from Google: \(errorDescription)")
+                } else if let err = json["error"] as? String {
+                    print("❌ OAuth Token Exchange Error from Google: \(err)")
+                } else {
+                    print("❌ OAuth Token Exchange Error: access_token not found in JSON")
                 }
-                
-                DispatchQueue.main.async {
-                    self.isGoogleLoggedIn = true
-                    self.fetchUserProfile(token: accessToken)
-                    self.setupDataSynchronization() // 연동 즉시 데이터 수집 재가동
-                }
+            } else {
+                print("❌ OAuth Token Exchange Error: Failed to parse JSON")
             }
         }.resume()
     }
