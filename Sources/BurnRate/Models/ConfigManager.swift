@@ -19,6 +19,8 @@ class ConfigManager: ObservableObject {
     private var currentLogPath: String?
     private var pollingTimer: Timer?
     private var oauthServer: LocalOAuthServer?
+    private var googleAccessToken: String?
+    private var googleRefreshToken: String?
     
     @Published var googleClientID: String = "" {
         didSet {
@@ -231,6 +233,8 @@ class ConfigManager: ObservableObject {
     }
     
     func logoutGoogle() {
+        self.googleAccessToken = nil
+        self.googleRefreshToken = nil
         _ = KeychainHelper.shared.delete(service: keychainService, account: keychainAccountToken)
         _ = KeychainHelper.shared.delete(service: keychainService, account: keychainAccountRefresh)
         
@@ -244,6 +248,8 @@ class ConfigManager: ObservableObject {
     
     private func checkLoginStatus() {
         if let token = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountToken), !token.isEmpty {
+            self.googleAccessToken = token
+            self.googleRefreshToken = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountRefresh)
             self.isGoogleLoggedIn = true
             fetchUserProfile(token: token)
         } else {
@@ -282,9 +288,11 @@ class ConfigManager: ObservableObject {
             
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] {
                 if let accessToken = json["access_token"] as? String {
+                    self.googleAccessToken = accessToken
                     _ = KeychainHelper.shared.saveString(accessToken, service: self.keychainService, account: self.keychainAccountToken)
                     
                     if let refreshToken = json["refresh_token"] as? String {
+                        self.googleRefreshToken = refreshToken
                         _ = KeychainHelper.shared.saveString(refreshToken, service: self.keychainService, account: self.keychainAccountRefresh)
                     }
                     
@@ -341,7 +349,7 @@ class ConfigManager: ObservableObject {
     
     private func fetchRealUsageData() {
         guard isGoogleLoggedIn,
-              let token = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountToken) else {
+              let token = googleAccessToken else {
             return
         }
         
@@ -502,7 +510,7 @@ class ConfigManager: ObservableObject {
     }
     
     private func refreshAccessToken() {
-        guard let refreshToken = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountRefresh),
+        guard let refreshToken = googleRefreshToken,
               let tokenURL = URL(string: "https://oauth2.googleapis.com/token") else {
             logoutGoogle()
             return
@@ -521,6 +529,7 @@ class ConfigManager: ObservableObject {
             if let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                let newAccessToken = json["access_token"] as? String {
                 
+                self.googleAccessToken = newAccessToken
                 _ = KeychainHelper.shared.saveString(newAccessToken, service: self.keychainService, account: self.keychainAccountToken)
                 print("Access token refreshed successfully.")
                 self.fetchRealUsageData()
