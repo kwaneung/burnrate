@@ -73,6 +73,50 @@ struct SettingsView: View {
                     
                     Divider()
                     
+                    // 에이전트 개별 연동 섹션 (준비중)
+                    VStack(alignment: .leading, spacing: 8) {
+                        Text("에이전트 개별 연동")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        
+                        VStack(spacing: 8) {
+                            ForEach(["Antigravity", "Claude Code", "Codex", "Cursor"], id: \.self) { name in
+                                HStack {
+                                    Image(systemName: iconForService(name))
+                                        .font(.title3)
+                                        .foregroundColor(.secondary)
+                                        .frame(width: 24)
+                                    
+                                    VStack(alignment: .leading, spacing: 2) {
+                                        Text(name)
+                                            .font(.body)
+                                            .fontWeight(.medium)
+                                            .foregroundColor(.secondary)
+                                        Text("개별 API 및 계정 연동 준비 중")
+                                            .font(.caption2)
+                                            .foregroundColor(.secondary.opacity(0.8))
+                                    }
+                                    
+                                    Spacer()
+                                    
+                                    Text("준비중")
+                                        .font(.system(size: 10, weight: .bold))
+                                        .padding(.horizontal, 8)
+                                        .padding(.vertical, 4)
+                                        .background(Color.secondary.opacity(0.12))
+                                        .foregroundColor(.secondary)
+                                        .cornerRadius(6)
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 12)
+                                .background(Color.secondary.opacity(0.03))
+                                .cornerRadius(8)
+                            }
+                        }
+                    }
+                    
+                    Divider()
+                    
                     // 대시보드 노출 설정
                     Text("대시보드 노출 설정")
                         .font(.subheadline)
@@ -118,6 +162,16 @@ struct SettingsView: View {
                 .foregroundColor(.red)
             }
             .padding(.bottom)
+        }
+    }
+    
+    private func iconForService(_ name: String) -> String {
+        switch name {
+        case "Antigravity": return "sparkles"
+        case "Claude Code": return "terminal"
+        case "Codex": return "cpu"
+        case "Cursor": return "cursorarrow"
+        default: return "questionmark.circle"
         }
     }
 }
