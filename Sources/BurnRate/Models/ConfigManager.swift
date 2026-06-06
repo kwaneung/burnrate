@@ -115,18 +115,28 @@ class ConfigManager: ObservableObject {
     // MARK: - Mock Data Simulation (연동 전 뼈대 테스트용)
     private func startMockTimer() {
         print("Started mock data simulation timer.")
-        // 앱이 켜졌을 때 초기 mock 데이터 세팅
-        self.usageData = UsageData(totalSpent: 0.15)
         
         mockTimer = Timer.scheduledTimer(withTimeInterval: 4.0, repeats: true) { [weak self] _ in
             guard let self = self else { return }
-            let cost = Double.random(in: 0.01...0.35)
             
             DispatchQueue.main.async {
-                var currentData = self.usageData
-                currentData.totalSpent += cost
-                self.usageData = currentData
-                print("Mock usage added: $ \(String(format: "%.4f", cost)) -> Total: $\(String(format: "%.4f", currentData.totalSpent))")
+                var updatedServices = self.services
+                let enabledIndices = updatedServices.indices.filter { updatedServices[$0].isEnabled }
+                
+                if let randomIndex = enabledIndices.randomElement() {
+                    let addition = Double.random(in: 1.0...15.0)
+                    let limit = updatedServices[randomIndex].totalLimit
+                    let current = updatedServices[randomIndex].currentUsage
+                    
+                    updatedServices[randomIndex].currentUsage = min(current + addition, limit)
+                    self.services = updatedServices
+                    
+                    // 합산 사용량을 usageData.totalSpent에 바인딩
+                    let totalUsage = updatedServices.filter(\.isEnabled).map(\.currentUsage).reduce(0, +)
+                    self.usageData = UsageData(totalSpent: totalUsage)
+                    
+                    print("Mock usage added to \(updatedServices[randomIndex].name): +\(String(format: "%.1f", addition)) -> \(updatedServices[randomIndex].currentUsage)/\(limit)")
+                }
             }
         }
     }

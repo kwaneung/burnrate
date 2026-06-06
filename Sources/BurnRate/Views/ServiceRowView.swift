@@ -2,7 +2,6 @@ import SwiftUI
 
 struct ServiceRowView: View {
     let service: AIService
-    let spent: Double
     
     var body: some View {
         HStack {
@@ -29,9 +28,15 @@ struct ServiceRowView: View {
             Spacer()
             
             if service.isEnabled {
-                Text(String(format: "$%.4f", spent))
-                    .font(.system(.body, design: .rounded))
-                    .fontWeight(.bold)
+                HStack(spacing: 2) {
+                    Text(String(format: "%.0f", service.currentUsage))
+                        .fontWeight(.bold)
+                    Text("/")
+                        .foregroundColor(.secondary)
+                    Text(String(format: "%.0f", service.totalLimit))
+                        .foregroundColor(.secondary)
+                }
+                .font(.system(.body, design: .rounded))
             } else {
                 Text("—")
                     .foregroundColor(.secondary)

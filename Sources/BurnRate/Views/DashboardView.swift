@@ -36,25 +36,53 @@ struct DashboardView: View {
                 
                 Divider()
                 
-                // 중앙 대시보드 요약 카드
+                // 중앙 대시보드 요약 카드 (전체 AI 합산 사용량 & 프로그레스 바)
                 VStack(spacing: 8) {
-                    let todaySpent = configManager.usageData.totalSpent
+                    let totalUsage = configManager.services.filter(\.isEnabled).map(\.currentUsage).reduce(0, +)
+                    let totalLimit = configManager.services.filter(\.isEnabled).map(\.totalLimit).reduce(0, +)
+                    let ratio = totalLimit > 0 ? totalUsage / totalLimit : 0.0
                     
-                    VStack(spacing: 6) {
+                    VStack(spacing: 8) {
                         Image(systemName: "flame.fill")
-                            .font(.system(size: 32))
+                            .font(.system(size: 28))
                             .foregroundColor(.orange)
-                            .padding(.bottom, 2)
                         
-                        Text(String(format: "$%.2f", todaySpent))
-                            .font(.system(size: 36, weight: .bold, design: .rounded))
+                        HStack(alignment: .bottom, spacing: 4) {
+                            Text(String(format: "%.0f", totalUsage))
+                                .font(.system(size: 32, weight: .bold, design: .rounded))
+                            Text("/")
+                                .font(.title3)
+                                .foregroundColor(.secondary)
+                            Text(String(format: "%.0f", totalLimit))
+                                .font(.title3)
+                                .foregroundColor(.secondary)
+                        }
                         
-                        Text("오늘 총 사용 요금")
-                            .font(.subheadline)
+                        Text("전체 AI 합산 사용량")
+                            .font(.caption)
                             .foregroundColor(.secondary)
+                            .padding(.bottom, 6)
+                        
+                        // 수평형 그라데이션 프로그레스 바
+                        GeometryReader { geo in
+                            ZStack(alignment: .leading) {
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(Color.secondary.opacity(0.15))
+                                    .frame(height: 8)
+                                
+                                RoundedRectangle(cornerRadius: 6)
+                                    .fill(
+                                        LinearGradient(colors: [.yellow, .orange, .red], startPoint: .leading, endPoint: .trailing)
+                                    )
+                                    .frame(width: geo.size.width * CGFloat(min(ratio, 1.0)), height: 8)
+                                    .animation(.spring(), value: ratio)
+                            }
+                        }
+                        .frame(height: 8)
+                        .padding(.horizontal, 24)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 24)
+                    .padding(.vertical, 20)
                     .background(Color.secondary.opacity(0.08))
                     .cornerRadius(16)
                 }
@@ -66,17 +94,7 @@ struct DashboardView: View {
                 List {
                     Section(header: Text("연동된 AI").font(.caption).foregroundColor(.secondary)) {
                         ForEach(configManager.services) { service in
-                            let spent: Double = {
-                                guard service.isEnabled else { return 0.0 }
-                                switch service.name {
-                                case "Antigravity": return configManager.usageData.totalSpent
-                                case "Claude Code": return configManager.usageData.totalSpent * 0.4
-                                case "Codex": return configManager.usageData.totalSpent * 0.3
-                                case "Cursor": return configManager.usageData.totalSpent * 0.6
-                                default: return 0.0
-                                }
-                            }()
-                            ServiceRowView(service: service, spent: spent)
+                            ServiceRowView(service: service)
                         }
                     }
                     
