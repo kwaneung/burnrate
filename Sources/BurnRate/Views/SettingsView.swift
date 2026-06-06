@@ -32,7 +32,7 @@ struct SettingsView: View {
                 VStack(alignment: .leading, spacing: 16) {
                     // 에이전트 개별 연동 섹션 (Antigravity는 실제 구글 로그인 연동 버튼으로 기능 할당)
                     VStack(alignment: .leading, spacing: 8) {
-                        Text("에이전트 개별 연동")
+                        Text("에이전트 연동")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         
