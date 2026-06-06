@@ -105,7 +105,7 @@ struct DashboardView: View {
                                 }
                                 .buttonStyle(.plain)
                             } else {
-                                ServiceRowView(service: service, isLinked: configManager.isGoogleLoggedIn)
+                                ServiceRowView(service: service, isLinked: false)
                             }
                         }
                     }
