@@ -20,14 +20,23 @@ class ConfigManager: ObservableObject {
     private var pollingTimer: Timer?
     private var oauthServer: LocalOAuthServer?
     
-    // Google Cloud OAuth Credential (기본 데스크톱 클라이언트용 설정)
-    private let clientID = "610212727148-v3u0514930u2o7j2h9p02oj0h2j33o2j.apps.googleusercontent.com" // 가상/공용 데스크톱 Client ID
+    @Published var googleClientID: String = "" {
+        didSet {
+            UserDefaults.standard.set(googleClientID, forKey: "BurnRate_GoogleClientID")
+        }
+    }
+    
+    var activeClientID: String {
+        let trimmed = googleClientID.trimmingCharacters(in: .whitespacesAndNewlines)
+        return trimmed.isEmpty ? "610212727148-v3u0514930u2o7j2h9p02oj0h2j33o2j.apps.googleusercontent.com" : trimmed
+    }
     private let redirectPort: UInt16 = 52425
     private let keychainService = "com.kwaneung.BurnRate"
     private let keychainAccountToken = "GoogleAccessToken"
     private let keychainAccountRefresh = "GoogleRefreshToken"
     
     init() {
+        self.googleClientID = UserDefaults.standard.string(forKey: "BurnRate_GoogleClientID") ?? ""
         loadServices()
         checkLoginStatus()
         setupDataSynchronization()
@@ -170,7 +179,7 @@ class ConfigManager: ObservableObject {
             "https://www.googleapis.com/auth/cloud-platform" // 실제 GCP 사용량 및 프로젝트 조회를 위한 스코프
         ].joined(separator: " ")
         
-        let authURLStr = "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(clientID)&redirect_uri=http://127.0.0.1:\(redirectPort)&response_type=code&scope=\(scopes.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
+        let authURLStr = "https://accounts.google.com/o/oauth2/v2/auth?client_id=\(activeClientID)&redirect_uri=http://127.0.0.1:\(redirectPort)&response_type=code&scope=\(scopes.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) ?? "")"
         
         if let url = URL(string: authURLStr) {
             NSWorkspace.shared.open(url)
@@ -206,7 +215,7 @@ class ConfigManager: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
-        let body = "code=\(code)&client_id=\(clientID)&redirect_uri=http://127.0.0.1:\(redirectPort)&grant_type=authorization_code"
+        let body = "code=\(code)&client_id=\(activeClientID)&redirect_uri=http://127.0.0.1:\(redirectPort)&grant_type=authorization_code"
         request.httpBody = body.data(using: .utf8)
         
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
@@ -436,7 +445,7 @@ class ConfigManager: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
-        let body = "client_id=\(clientID)&refresh_token=\(refreshToken)&grant_type=refresh_token"
+        let body = "client_id=\(activeClientID)&refresh_token=\(refreshToken)&grant_type=refresh_token"
         request.httpBody = body.data(using: .utf8)
         
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in

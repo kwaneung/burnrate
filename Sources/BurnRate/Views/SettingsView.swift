@@ -30,6 +30,24 @@ struct SettingsView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
+                    // Google Client ID 설정 섹션
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("Google OAuth Client ID 설정")
+                            .font(.subheadline)
+                            .fontWeight(.semibold)
+                        
+                        TextField("Client ID 입력", text: $configManager.googleClientID)
+                            .textFieldStyle(.roundedBorder)
+                            .font(.system(.caption, design: .monospaced))
+                        
+                        Text("GCP 콘솔에서 '데스크톱 앱' 유형의 OAuth 클라이언트 ID를 발급받아 입력해주세요. 입력하지 않으면 기본 공용 Client ID가 사용됩니다.")
+                            .font(.system(size: 9))
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.vertical, 4)
+                    
+                    Divider()
+                    
                     // 에이전트 개별 연동 섹션 (Antigravity는 실제 구글 로그인 연동 버튼으로 기능 할당)
                     VStack(alignment: .leading, spacing: 8) {
                         Text("에이전트 연동")
