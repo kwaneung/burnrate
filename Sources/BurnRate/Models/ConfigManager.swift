@@ -26,10 +26,39 @@ class ConfigManager: ObservableObject {
         }
     }
     
+    private struct LocalCredentials: Codable {
+        let client_id: String
+        let client_secret: String
+    }
+    
+    private func loadLocalCredentials() -> LocalCredentials? {
+        let homeDir = FileManager.default.homeDirectoryForCurrentUser
+        let fileURL = homeDir.appendingPathComponent(".burnrate_credentials.json")
+        guard let data = try? Data(contentsOf: fileURL),
+              let creds = try? JSONDecoder().decode(LocalCredentials.self, from: data) else {
+            return nil
+        }
+        return creds
+    }
+
     var activeClientID: String {
         let trimmed = googleClientID.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "210171745916-m69vth76j0i4hftst2i8dnl8j329k1cv.apps.googleusercontent.com" : trimmed
+        if !trimmed.isEmpty {
+            return trimmed
+        }
+        if let creds = loadLocalCredentials() {
+            return creds.client_id
+        }
+        return "610212727148-v3u0514930u2o7j2h9p02oj0h2j33o2j.apps.googleusercontent.com"
     }
+    
+    var activeClientSecret: String {
+        if let creds = loadLocalCredentials() {
+            return creds.client_secret
+        }
+        return ""
+    }
+    
     private let redirectPort: UInt16 = 52425
     private let keychainService = "com.kwaneung.BurnRate"
     private let keychainAccountToken = "GoogleAccessToken"
@@ -215,7 +244,7 @@ class ConfigManager: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
-        let body = "code=\(code)&client_id=\(activeClientID)&redirect_uri=http://127.0.0.1:\(redirectPort)&grant_type=authorization_code"
+        let body = "code=\(code)&client_id=\(activeClientID)&client_secret=\(activeClientSecret)&redirect_uri=http://127.0.0.1:\(redirectPort)&grant_type=authorization_code"
         request.httpBody = body.data(using: .utf8)
         
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
@@ -469,7 +498,7 @@ class ConfigManager: ObservableObject {
         request.httpMethod = "POST"
         request.setValue("application/x-www-form-urlencoded", forHTTPHeaderField: "Content-Type")
         
-        let body = "client_id=\(activeClientID)&refresh_token=\(refreshToken)&grant_type=refresh_token"
+        let body = "client_id=\(activeClientID)&client_secret=\(activeClientSecret)&refresh_token=\(refreshToken)&grant_type=refresh_token"
         request.httpBody = body.data(using: .utf8)
         
         URLSession.shared.dataTask(with: request) { [weak self] data, response, error in
