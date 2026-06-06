@@ -2,19 +2,20 @@ import SwiftUI
 
 struct ServiceRowView: View {
     let service: AIService
+    let isLinked: Bool
     
     var body: some View {
         HStack {
             Image(systemName: iconName)
                 .font(.title3)
-                .foregroundColor(service.isEnabled ? .orange : .secondary)
+                .foregroundColor(isLinked ? .orange : .secondary)
                 .frame(width: 24)
             
             VStack(alignment: .leading, spacing: 2) {
                 Text(service.name)
                     .font(.body)
                     .fontWeight(.medium)
-                if service.isEnabled {
+                if isLinked {
                     Text("연동 활성화됨")
                         .font(.caption2)
                         .foregroundColor(.green)
@@ -27,7 +28,7 @@ struct ServiceRowView: View {
             
             Spacer()
             
-            if service.isEnabled {
+            if isLinked {
                 HStack(spacing: 2) {
                     Text(String(format: "%.0f", service.currentUsage))
                         .fontWeight(.bold)
