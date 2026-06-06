@@ -352,16 +352,18 @@ class ConfigManager: ObservableObject {
         endTime: String,
         completion: @escaping (Double, Double, Double) -> Void
     ) {
-        let filter = "metric.type=\"serviceruntime.googleapis.com/api/request_count\""
-        guard let encodedFilter = filter.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let encodedStart = startTime.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let encodedEnd = endTime.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+        guard var components = URLComponents(string: "https://monitoring.googleapis.com/v3/projects/\(projectId)/timeSeries") else {
             completion(0, 0, 0)
             return
         }
         
-        let urlStr = "https://monitoring.googleapis.com/v3/projects/\(projectId)/timeSeries?filter=\(encodedFilter)&interval.startTime=\(encodedStart)&interval.endTime=\(encodedEnd)"
-        guard let url = URL(string: urlStr) else {
+        components.queryItems = [
+            URLQueryItem(name: "filter", value: "metric.type=\"serviceruntime.googleapis.com/api/request_count\""),
+            URLQueryItem(name: "interval.startTime", value: startTime),
+            URLQueryItem(name: "interval.endTime", value: endTime)
+        ]
+        
+        guard let url = components.url else {
             completion(0, 0, 0)
             return
         }
