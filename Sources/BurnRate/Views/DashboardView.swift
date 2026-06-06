@@ -40,58 +40,6 @@ struct DashboardView: View {
                 
                 Divider()
                 
-                // 중앙 대시보드 요약 카드 (전체 AI 합산 사용량 & 프로그레스 바)
-                VStack(spacing: 8) {
-                    let totalUsage = configManager.services.filter(\.isEnabled).map(\.currentUsage).reduce(0, +)
-                    let totalLimit = configManager.services.filter(\.isEnabled).map(\.totalLimit).reduce(0, +)
-                    let ratio = totalLimit > 0 ? totalUsage / totalLimit : 0.0
-                    
-                    VStack(spacing: 8) {
-                        Image(systemName: "flame.fill")
-                            .font(.system(size: 28))
-                            .foregroundColor(.orange)
-                        
-                        HStack(alignment: .bottom, spacing: 4) {
-                            Text(String(format: "%.0f", totalUsage))
-                                .font(.system(size: 32, weight: .bold, design: .rounded))
-                            Text("/")
-                                .font(.title3)
-                                .foregroundColor(.secondary)
-                            Text(String(format: "%.0f", totalLimit))
-                                .font(.title3)
-                                .foregroundColor(.secondary)
-                        }
-                        
-                        Text("전체 AI 합산 사용량")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                            .padding(.bottom, 6)
-                        
-                        // 수평형 프로그레스 바 (그라데이션 및 애니메이션 제거하여 CLI 번들 셰이더 로더 크래시 방지)
-                        GeometryReader { geo in
-                            ZStack(alignment: .leading) {
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(Color.secondary.opacity(0.15))
-                                    .frame(height: 8)
-                                
-                                let barColor: Color = ratio >= 0.8 ? .red : (ratio >= 0.5 ? .orange : .yellow)
-                                RoundedRectangle(cornerRadius: 6)
-                                    .fill(barColor)
-                                    .frame(width: geo.size.width * CGFloat(min(ratio, 1.0)), height: 8)
-                            }
-                        }
-                        .frame(height: 8)
-                        .padding(.horizontal, 24)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 20)
-                    .background(Color.secondary.opacity(0.08))
-                    .cornerRadius(16)
-                }
-                .padding()
-                
-                Divider()
-                
                 // 서비스 리스트 영역
                 List {
                     Section(header: Text("연동된 AI").font(.caption).foregroundColor(.secondary)) {
