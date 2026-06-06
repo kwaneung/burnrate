@@ -28,7 +28,7 @@ class ConfigManager: ObservableObject {
     
     var activeClientID: String {
         let trimmed = googleClientID.trimmingCharacters(in: .whitespacesAndNewlines)
-        return trimmed.isEmpty ? "610212727148-v3u0514930u2o7j2h9p02oj0h2j33o2j.apps.googleusercontent.com" : trimmed
+        return trimmed.isEmpty ? "210171745916-m69vth76j0i4hftst2i8dnl8j329k1cv.apps.googleusercontent.com" : trimmed
     }
     private let redirectPort: UInt16 = 52425
     private let keychainService = "com.kwaneung.BurnRate"
