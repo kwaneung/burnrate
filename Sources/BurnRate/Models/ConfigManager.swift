@@ -249,7 +249,7 @@ class ConfigManager: ObservableObject {
     private func checkLoginStatus() {
         if let token = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountToken), !token.isEmpty {
             self.googleAccessToken = token
-            self.googleRefreshToken = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountRefresh)
+            // googleRefreshToken은 갱신 시점에 필요할 때만 키체인에서 지연 로딩하여 앱 구동 시 키체인 접근 팝업이 두 번 뜨는 현상을 방지합니다.
             self.isGoogleLoggedIn = true
             fetchUserProfile(token: token)
         } else {
@@ -510,6 +510,9 @@ class ConfigManager: ObservableObject {
     }
     
     private func refreshAccessToken() {
+        if googleRefreshToken == nil {
+            googleRefreshToken = KeychainHelper.shared.readString(service: keychainService, account: keychainAccountRefresh)
+        }
         guard let refreshToken = googleRefreshToken,
               let tokenURL = URL(string: "https://oauth2.googleapis.com/token") else {
             logoutGoogle()
