@@ -33,48 +33,50 @@ struct SettingsView: View {
             
             ScrollView {
                 VStack(alignment: .leading, spacing: 16) {
-                    // 에이전트 개별 연동 섹션 (Antigravity는 실제 구글 로그인 연동 버튼으로 기능 할당)
+                    // 에이전트 개별 연동 섹션
                     VStack(alignment: .leading, spacing: 8) {
                         Text("에이전트 연동")
                             .font(.subheadline)
                             .fontWeight(.semibold)
                         
                         VStack(spacing: 8) {
-                            // 1. Antigravity (실제 활성화된 구글 OAuth 연동 카드)
-                            HStack {
+                            // 1. Antigravity (로컬 사용량 파일 연동)
+                            HStack(alignment: .top) {
                                 Image(systemName: "sparkles")
                                     .font(.title3)
-                                    .foregroundColor(configManager.isGoogleLoggedIn ? .orange : .secondary)
+                                    .foregroundColor(configManager.isAntigravityLinked ? .orange : .secondary)
                                     .frame(width: 24)
                                 
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text("Antigravity")
                                         .font(.body)
                                         .fontWeight(.medium)
-                                        .foregroundColor(configManager.isGoogleLoggedIn ? .primary : .secondary)
+                                        .foregroundColor(configManager.isAntigravityLinked ? .primary : .secondary)
                                     
-                                    if configManager.isGoogleLoggedIn {
-                                        Text("\(configManager.googleAccountName) 계정 연동 완료 (사용량 동기화 중)")
+                                    if configManager.isAntigravityLinked {
+                                        Text(configManager.antigravityStatusMessage)
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     } else {
-                                        Text("구글 계정을 연동하여 사용량을 실시간 수집합니다.")
+                                        Text("Antigravity CLI 로그인 세션의 로컬 사용량 파일을 감시하여 사용량을 수집합니다.")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
                                 
-                                Spacer()
+                                Spacer(minLength: 8)
                                 
-                                if configManager.isGoogleLoggedIn {
+                                if configManager.isAntigravityLinked {
                                     Button("연동 해제") {
-                                        configManager.logoutGoogle()
+                                        configManager.isAntigravityLinked = false
                                     }
                                     .buttonStyle(BorderedButtonStyle())
                                     .controlSize(.small)
                                 } else {
                                     Button("연동하기") {
-                                        configManager.startGoogleLogin()
+                                        configManager.isAntigravityLinked = true
                                     }
                                     .buttonStyle(BorderedProminentButtonStyle())
                                     .controlSize(.small)
@@ -82,7 +84,7 @@ struct SettingsView: View {
                             }
                             .padding(.vertical, 8)
                             .padding(.horizontal, 12)
-                            .background(Color.secondary.opacity(configManager.isGoogleLoggedIn ? 0.06 : 0.03))
+                            .background(Color.secondary.opacity(configManager.isAntigravityLinked ? 0.06 : 0.03))
                             .cornerRadius(8)
                             
                             // 1-2. Cursor (실제 키체인 연동 카드)
@@ -99,11 +101,11 @@ struct SettingsView: View {
                                         .foregroundColor(configManager.isCursorLinked ? .primary : .secondary)
                                     
                                     if configManager.isCursorLinked {
-                                        Text("키체인 세션 연동 완료 (사용량 동기화 중)")
+                                        Text("Cursor 로컬 세션 연동 완료 (사용량 동기화 중)")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     } else {
-                                        Text("키체인에서 로그인 세션을 감지하여 사용량을 실시간 수집합니다.")
+                                        Text("Cursor 앱의 로컬 세션 파일을 읽어 사용량을 수집합니다. (비공식 API 연동)")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                     }
@@ -119,10 +121,10 @@ struct SettingsView: View {
                                     .controlSize(.small)
                                 } else {
                                     Button("연동하기") {
-                                        if KeychainHelper.shared.readString(service: "cursor-access-token", account: "cursor-user") != nil {
+                                        if CursorSessionReader.hasActiveSession {
                                             configManager.isCursorLinked = true
                                         } else {
-                                            cursorAlertMessage = "키체인에서 Cursor 로그인 세션(cursor-access-token)을 찾을 수 없습니다. Cursor 에디터에 로그인되어 있는지 확인해 주세요."
+                                            cursorAlertMessage = "Cursor 로그인 세션을 찾을 수 없습니다. Cursor 에디터에 로그인되어 있는지 확인해 주세요."
                                             showCursorAlert = true
                                         }
                                     }
@@ -183,7 +185,12 @@ struct SettingsView: View {
                             HStack {
                                 Toggle(isOn: Binding(
                                     get: { configManager.services[index].isEnabled },
-                                    set: { configManager.services[index].isEnabled = $0 }
+                                    set: { newValue in
+                                        var updated = configManager.services
+                                        updated[index].isEnabled = newValue
+                                        configManager.services = updated
+                                        configManager.refreshDataSynchronization()
+                                    }
                                 )) {
                                     Text(configManager.services[index].name)
                                         .font(.body)
@@ -202,19 +209,11 @@ struct SettingsView: View {
             
             Spacer()
             
-            VStack(spacing: 8) {
-                Button("저장 및 닫기") {
-                    configManager.saveServices()
-                    isPresented = false
-                }
-                .keyboardShortcut(.defaultAction)
-                
-                Button("앱 종료") {
-                    NSApplication.shared.terminate(nil)
-                }
-                .buttonStyle(.borderless)
-                .foregroundColor(.red)
+            Button("앱 종료") {
+                NSApplication.shared.terminate(nil)
             }
+            .buttonStyle(.borderless)
+            .foregroundColor(.red)
             .padding(.bottom)
         }
         .alert(isPresented: $showCursorAlert) {

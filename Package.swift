@@ -17,6 +17,7 @@ let package = Package(
             path: "Sources/BurnRate",
             exclude: ["Resources/Info.plist"],
             linkerSettings: [
+                .linkedLibrary("sqlite3"),
                 .unsafeFlags([
                     "-Xlinker", "-sectcreate",
                     "-Xlinker", "__TEXT",

@@ -51,7 +51,7 @@ struct DashboardView: View {
                                 Button(action: {
                                     activeDetailService = service
                                 }) {
-                                    ServiceRowView(service: service, isLinked: configManager.isGoogleLoggedIn)
+                                    ServiceRowView(service: service, isLinked: configManager.isAntigravityLinked)
                                         .contentShape(Rectangle())
                                 }
                                 .buttonStyle(.plain)

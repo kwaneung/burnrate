@@ -25,6 +25,10 @@ struct AIService: Identifiable, Codable {
     var currentUsage: Double
     var totalLimit: Double
     var quotas: [ModelQuota]? // 상세 쿼터 데이터
+    var membershipLabel: String? // Cursor: Pro, Pro+ 등
+    var onDemandEnabled: Bool?
+    var onDemandUsed: Int?
+    var onDemandLimit: Int?
     
     static var defaultServices: [AIService] {
         let homeDir = FileManager.default.homeDirectoryForCurrentUser.path

@@ -4,3 +4,4 @@
 /*.xcodeproj
 build/
 DerivedData/
+.burnrate_credentials.json

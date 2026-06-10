@@ -34,7 +34,7 @@ struct CursorDetailView: View {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 20) {
                         HStack {
-                            Text("Included in Pro")
+                            Text("Included in \(service.membershipLabel ?? "Pro")")
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundColor(.secondary)
                             
@@ -118,16 +118,20 @@ struct CursorDetailView: View {
                                 .font(.system(.caption, design: .monospaced))
                                 .foregroundColor(.secondary)
                             
+                            let onDemandEnabled = service.onDemandEnabled ?? false
+                            
                             VStack(alignment: .leading, spacing: 2) {
                                 HStack {
                                     Text("On-Demand Spending")
                                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                                     Spacer()
-                                    Text("Disabled")
+                                    Text(onDemandEnabled ? "Enabled" : "Disabled")
                                         .font(.system(size: 11, design: .monospaced))
                                         .foregroundColor(.secondary)
                                 }
-                                Text("On-demand spending is currently disabled")
+                                Text(onDemandEnabled
+                                     ? "On-demand spending is enabled"
+                                     : "On-demand spending is currently disabled")
                                     .font(.system(size: 9, design: .monospaced))
                                     .foregroundColor(.secondary)
                             }
@@ -137,13 +141,25 @@ struct CursorDetailView: View {
                                     Text("Monthly Limit")
                                         .font(.system(size: 11, weight: .bold, design: .monospaced))
                                     Spacer()
-                                    Text("Disabled")
-                                        .font(.system(size: 11, design: .monospaced))
+                                    if onDemandEnabled, let limit = service.onDemandLimit {
+                                        Text("$\(limit)")
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundColor(.secondary)
+                                    } else {
+                                        Text("Disabled")
+                                            .font(.system(size: 11, design: .monospaced))
+                                            .foregroundColor(.secondary)
+                                    }
+                                }
+                                if onDemandEnabled, let used = service.onDemandUsed {
+                                    Text("Used $\(used) this cycle")
+                                        .font(.system(size: 9, design: .monospaced))
+                                        .foregroundColor(.secondary)
+                                } else {
+                                    Text("Set a fixed amount or make it unlimited.")
+                                        .font(.system(size: 9, design: .monospaced))
                                         .foregroundColor(.secondary)
                                 }
-                                Text("Set a fixed amount or make it unlimited.")
-                                    .font(.system(size: 9, design: .monospaced))
-                                    .foregroundColor(.secondary)
                             }
                         }
                         .padding(.horizontal, 4)
