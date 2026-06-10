@@ -1,72 +1,161 @@
-# 🐱 BurnRate: macOS Status Bar App Specification
+# 🐱 BurnRate
 
-`BurnRate`는 개발자가 일상적으로 사용하는 주요 AI 코딩 에이전트들의 월 구독료 및 크레딧 소진율(Burn Rate)을 실시간으로 모니터링하고 시각화할 수 있도록 돕는 **macOS 네이티브 상태바(Status Bar) 앱**입니다. 
+개발자가 사용하는 AI 코딩 에이전트의 **크레딧·구독 소진율(Burn Rate)** 을 macOS 메뉴바에서 한곳에 모아 보는 **네이티브 상태바 앱**입니다.
 
-메뉴바에 상주하며, 클릭 시 미니 대시보드를 띄워 연동된 에이전트들의 사용량 통계와 잔여 크레딧을 직관적으로 보여줍니다. 사용자가 설정한 한도 또는 일일 예산 대비 소진율에 따라 상태바 아이콘의 캐릭터 상태가 역동적으로 변화합니다.
-
----
-
-## 📌 1. 핵심 기획 요약
-
-*   **형태**: macOS 네이티브 상태바 앱 (100% SwiftUI - macOS 13+ `MenuBarExtra` 사용)
-*   **패키지 구조**: Swift Package Manager (SPM) 단일 실행 바이너리 패키지
-*   **핵심 기능**:
-    *   **상태바 상주**: Dock에 나타나지 않고 macOS 상단 메뉴바에만 표시되는 백그라운드 에이전트.
-    *   **실시간 애니메이션**: 구독 크레딧 소진율(Burn Rate)에 따라 캐릭터(고양이)가 뛰거나 땀 흘리고, 결국 불타는 시각적 효과 제공.
-    *   **통합 대시보드 Window**: 클릭 시 각 AI 에이전트별 누적 사용액, 소진율(%), 잔여 예산 통계를 원형 게이지와 리스트로 직관적 시각화.
-    *   **다중 에이전트 연동**: 사용 중인 AI 에이전트 계정 연동을 통해 한곳에서 전체 크레딧 소모 추이를 파악.
-    *   **키체인 보안**: API Key 및 OAuth 액세스 토큰은 macOS **Keychain**을 활용해 암호화하여 안전하게 저장.
-*   **연동 타겟 (4대 AI 코딩 에이전트)**:
-    1.  **Antigravity** (자율 AI 코딩 어시스턴트)
-    2.  **Claude Code** (Anthropic CLI 코딩 에이전트)
-    3.  **Cursor** (AI 네이티브 에디터)
-    4.  **GitHub Copilot** (구독 및 사용량 기반 코딩 어시스턴트)
+메뉴바 🔥 아이콘을 클릭하면 미니 대시보드가 열리고, 연동된 에이전트별 사용량과 상세 쿼터를 확인할 수 있습니다.
 
 ---
 
-## ⚙️ 2. 시스템 아키텍처 및 연동 개념
+## 현재 지원 (v1.0)
 
-```mermaid
-graph TD
-    A[사용자 macOS 환경] -->|상태바 상주| B(BurnRate macOS App)
-    B -->|MenuBarExtra Window| C[SwiftUI Dashboard View]
-    B -->|설정 화면| D[SwiftUI Settings View]
-    
-    %% 계정 연동 및 API 동기화
-    D -->|OAuth / Access Token 연동| E[Keychain Secure Storage]
-    E -->|인증 자격증명 조회| B
-    
-    %% 외부 에이전트 서버들
-    B -->|1. Usage API 조회| F[Antigravity Cloud]
-    B -->|2. Usage API 조회| G[Anthropic Cloud - Claude Code]
-    B -->|3. Usage API 조회| H[Cursor Cloud]
-    B -->|4. Usage API 조회| I[GitHub Copilot Cloud]
-```
-
-### 2.1 연동 메커니즘 (구독 요금 및 크레딧 동기화)
-*   **계정 및 API 연동**: 사용자가 설정창에서 각 에이전트 계정 로그인(OAuth) 또는 API Key 입력을 수행하면, 인증 자격 증명(Access Token)이 macOS Keychain에 암호화 보관됩니다.
-*   **백그라운드 동기화**: `BurnRate` 앱이 주기적으로 각 에이전트 사의 사용량 조회 API 엔드포인트를 호출하여, 사용자의 현재 요금제 대비 오늘/이번 달 소모 크레딧 및 잔여 요금을 동기화합니다.
-*   **단일화된 사용량 처리**: 로컬 로그 감시나 복잡한 프록시 중계 대신, 각 서버로부터 수집한 **누적 비용 및 소진율(%)**을 하나의 통일된 수치(`totalSpent` / 소진율)로 처리하여 UI에 일관되게 표현합니다.
+| 에이전트 | 상태 | 연동 방식 |
+|----------|------|-----------|
+| **Antigravity** | ✅ 지원 | 로컬 사용량 JSON 파일 감시 |
+| **Cursor** | ✅ 지원 | Cursor 로컬 세션 + Usage API |
+| **Claude Code** | 🚧 준비 중 | — |
+| **Codex** | 🚧 준비 중 | — |
+| **GitHub Copilot** | 📋 로드맵 | — |
 
 ---
 
-## 🛠️ 3. 빌드, 실행 및 배포 (SPM & Homebrew)
+## 연동 상세
 
-### 3.1 로컬 빌드 및 실행
-별도의 Xcode GUI 프로그램 설치 및 실행 없이 터미널에서 다음 한 줄로 빌드와 동시에 실행할 수 있습니다.
+### Antigravity
+
+Antigravity CLI가 Google 계정으로 로그인되어 있어야 합니다. BurnRate는 CLI가 갱신하는 로컬 파일만 읽습니다. **Google OAuth·Keychain·외부 API 호출은 하지 않습니다.**
+
+| 항목 | 내용 |
+|------|------|
+| **사용량 파일** | `~/.gemini/antigravity-cli/api_usage.json` |
+| **동기화** | 파일 변경 감시 (`DispatchSource`), 없으면 30초마다 재시도 |
+| **상세 화면** | 모델별 잔여 %, 주간·5시간 쿼터 |
+| **연동 해제** | 설정 → Antigravity → 연동 해제 |
+
+### Cursor
+
+Cursor 에디터에 로그인되어 있어야 합니다. 세션은 Cursor가 저장한 로컬 SQLite DB에서 읽고, 사용량은 Cursor 웹 API로 조회합니다. **Keychain을 읽지 않으므로 Keychain 접근 팝업이 뜨지 않습니다.**
+
+| 항목 | 내용 |
+|------|------|
+| **세션 파일** | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` |
+| **세션 키** | `cursorAuth/accessToken` |
+| **Usage API** | `GET https://cursor.com/api/usage-summary` (15초 폴링) |
+| **상세 화면** | Total / Auto+Composer / API 사용률, 플랜명(Pro, Pro+ 등) |
+| **연동 해제** | 설정 → Cursor → 연동 해제 |
+
+> **참고:** Cursor Usage API는 **비공식** 엔드포인트입니다. Cursor 업데이트에 따라 동작이 바뀔 수 있습니다.
+
+---
+
+## 사용 방법
+
+### 빌드 및 실행
+
+Xcode 없이 터미널에서 실행할 수 있습니다.
+
 ```bash
+git clone https://github.com/kwaneung/burnrate.git
+cd burnrate
 swift run
 ```
 
-### 3.2 링커를 통한 Info.plist 내장 구조
-macOS에서 일반 CLI 실행 파일이 백그라운드 에이전트(`LSUIElement`)로 인식되게 하기 위하여, `Package.swift` 내부에서 링커 플래그 `-sectcreate __TEXT __info_plist` 설정을 통해 빌드 시점에 실행 파일(Executable) 자체에 `Info.plist`가 내장되도록 구성되어 있습니다. 
-따라서 별도의 `.app` 패키징 없이 단일 바이너리 상태로도 완벽하게 백그라운드 메뉴바 앱으로 구동됩니다.
+Release 빌드:
 
-### 3.3 Homebrew Package (Formula) 배포 설계
-이 앱은 단일 실행 파일로 컴파일되므로, 향후 Homebrew Formula로 배포 시 매우 간편하게 배포할 수 있습니다.
-*   **Formula 빌드 커맨드 예시**:
-    ```ruby
-    system "swift", "build", "--configuration", "release", "--disable-sandbox"
-    bin.install ".build/release/burnrate"
-    ```
-*   사용자가 `brew install burnrate`를 설치하고 `burnrate`를 실행하면 즉시 백그라운드 메뉴바 앱으로 동작하게 됩니다.
+```bash
+swift build --configuration release
+.build/release/burnrate
+```
+
+### 앱 사용
+
+1. 메뉴바 **🔥** 아이콘 클릭
+2. **설정(⚙️)** → Antigravity / Cursor **연동하기**
+3. 대시보드에서 서비스 선택 → 상세 사용량 확인
+4. **대시보드 노출 설정**에서 표시할 에이전트 on/off
+
+설정 변경은 **즉시 반영**됩니다. 별도 저장 버튼은 없습니다.
+
+---
+
+## 아키텍처
+
+```mermaid
+graph TD
+    A[MenuBarExtra 🔥] --> B[DashboardView]
+    B --> C[SettingsView]
+    B --> D[AntigravityDetailView]
+    B --> E[CursorDetailView]
+
+    F[ConfigManager] --> B
+
+    F -->|파일 감시| G["~/.gemini/.../api_usage.json"]
+    F -->|SQLite 읽기| H["Cursor state.vscdb"]
+    F -->|15초 폴링| I["cursor.com/api/usage-summary"]
+```
+
+### 프로젝트 구조
+
+```
+burnrate/
+├── Package.swift
+├── README.md
+└── Sources/BurnRate/
+    ├── Controllers/BurnRateApp.swift      # @main, MenuBarExtra
+    ├── Models/
+    │   ├── ConfigManager.swift            # 상태·동기화 핵심
+    │   ├── CursorSessionReader.swift      # Cursor 세션 읽기
+    │   ├── AIService.swift
+    │   └── UsageData.swift
+    ├── Views/
+    │   ├── DashboardView.swift
+    │   ├── SettingsView.swift
+    │   ├── AntigravityDetailView.swift
+    │   ├── CursorDetailView.swift
+    │   └── ServiceRowView.swift
+    └── Resources/Info.plist
+```
+
+---
+
+## 기술 스택
+
+- **언어 / UI:** Swift 5.8+, SwiftUI
+- **최소 OS:** macOS 13+
+- **빌드:** Swift Package Manager (외부 의존성 없음)
+- **백그라운드:** `LSUIElement` (Dock 아이콘 없음)
+- **Info.plist:** 링커 `-sectcreate`로 실행 파일에 내장
+
+---
+
+## 알려진 제한
+
+- Cursor Usage API는 공식 third-party API가 아닙니다.
+- Antigravity 사용량은 CLI가 `api_usage.json`을 갱신해야 표시됩니다.
+- Claude Code, Codex, GitHub Copilot은 아직 연동되지 않았습니다.
+
+---
+
+## 로드맵
+
+- [ ] Claude Code / Codex / GitHub Copilot 연동
+- [ ] Homebrew cask 배포 (Developer ID 서명 `.app` + Notarization)
+- [ ] 메뉴바 아이콘 Burn Rate 애니메이션
+- [ ] Brew Formula / cask 스크립트
+
+---
+
+## Homebrew 배포 (예정)
+
+```ruby
+# cask 예시 (개념)
+system "swift", "build", "--configuration", "release"
+# Developer ID 서명 .app → brew install --cask burnrate
+```
+
+SPM 단일 바이너리(`swift run`)로도 개발·실행 가능하며, 정식 배포 시에는 서명된 `.app` 번들을 권장합니다.
+
+---
+
+## 기여
+
+Issue와 Pull Request를 환영합니다.
