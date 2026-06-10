@@ -4,14 +4,15 @@ struct SettingsView: View {
     @ObservedObject var configManager: ConfigManager
     @Binding var isPresented: Bool
     
-    @State private var showCursorAlert = false
-    @State private var cursorAlertMessage = ""
+    @State private var cursorAlertMessage: String?
+    @State private var isResetConfirming = false
     
     var body: some View {
         VStack(spacing: 20) {
             // 헤더 (좌측 뒤로가기 버튼)
             HStack(spacing: 12) {
                 Button(action: {
+                    isResetConfirming = false
                     isPresented = false
                 }) {
                     Image(systemName: "chevron.left")
@@ -123,9 +124,9 @@ struct SettingsView: View {
                                     Button("연동하기") {
                                         if CursorSessionReader.hasActiveSession {
                                             configManager.isCursorLinked = true
+                                            cursorAlertMessage = nil
                                         } else {
                                             cursorAlertMessage = "Cursor 로그인 세션을 찾을 수 없습니다. Cursor 에디터에 로그인되어 있는지 확인해 주세요."
-                                            showCursorAlert = true
                                         }
                                     }
                                     .buttonStyle(BorderedProminentButtonStyle())
@@ -136,6 +137,14 @@ struct SettingsView: View {
                             .padding(.horizontal, 12)
                             .background(Color.secondary.opacity(configManager.isCursorLinked ? 0.06 : 0.03))
                             .cornerRadius(8)
+
+                            if let cursorAlertMessage {
+                                Text(cursorAlertMessage)
+                                    .font(.caption2)
+                                    .foregroundColor(.red)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(.horizontal, 12)
+                            }
                             
                             // 2. 나머지 준비중인 에이전트들
                             ForEach(["Claude Code", "Codex"], id: \.self) { name in
@@ -209,15 +218,53 @@ struct SettingsView: View {
             
             Spacer()
             
-            Button("앱 종료") {
-                NSApplication.shared.terminate(nil)
+            if isResetConfirming {
+                VStack(spacing: 10) {
+                    Text("설정을 초기화할까요?")
+                        .font(.subheadline)
+                        .fontWeight(.semibold)
+                    
+                    Text("연동 상태, 대시보드 표시 설정, 사용량 데이터가 처음 설치한 상태로 돌아갑니다.")
+                        .font(.caption2)
+                        .foregroundColor(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    
+                    HStack(spacing: 12) {
+                        Button("취소") {
+                            isResetConfirming = false
+                        }
+                        .buttonStyle(BorderedButtonStyle())
+                        .controlSize(.small)
+                        
+                        Button("초기화") {
+                            configManager.resetAllSettings()
+                            isResetConfirming = false
+                            cursorAlertMessage = nil
+                        }
+                        .buttonStyle(BorderedProminentButtonStyle())
+                        .controlSize(.small)
+                        .tint(.red)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.bottom)
+            } else {
+                HStack(spacing: 20) {
+                    Button("설정 초기화") {
+                        isResetConfirming = true
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundColor(.secondary)
+                    
+                    Button("앱 종료") {
+                        NSApplication.shared.terminate(nil)
+                    }
+                    .buttonStyle(.borderless)
+                    .foregroundColor(.red)
+                }
+                .padding(.bottom)
             }
-            .buttonStyle(.borderless)
-            .foregroundColor(.red)
-            .padding(.bottom)
-        }
-        .alert(isPresented: $showCursorAlert) {
-            Alert(title: Text("연동 실패"), message: Text(cursorAlertMessage), dismissButton: .default(Text("확인")))
         }
     }
     

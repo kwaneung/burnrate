@@ -92,6 +92,31 @@ class ConfigManager: ObservableObject {
         setupDataSynchronization()
     }
 
+    func resetAllSettings() {
+        stopMonitoring()
+        stopAntigravityRetryTimer()
+        antigravityReloadWorkItem?.cancel()
+        antigravityReloadWorkItem = nil
+
+        for key in Self.userDefaultsKeys {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
+
+        usageData = .empty
+        antigravityStatusMessage = "Antigravity CLI 로그인 후 사용량 파일을 기다리는 중"
+        services = AIService.defaultServices
+        isCursorLinked = false
+        isAntigravityLinked = false
+        isAntigravityLinked = Self.initialAntigravityLinked()
+    }
+
+    private static let userDefaultsKeys = [
+        "BurnRate_AntigravityLinked",
+        "BurnRate_CursorLinked",
+        "BurnRate_Services",
+        "BurnRate_GoogleClientID"
+    ]
+
     var antigravityUsageFilePath: String? {
         guard let service = services.first(where: { $0.name == "Antigravity" }),
               let path = service.logFilePath,
