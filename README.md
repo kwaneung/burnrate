@@ -18,6 +18,31 @@
 
 ---
 
+## 설치
+
+### Homebrew (권장)
+
+macOS 13+ 및 [Homebrew](https://brew.sh/)가 필요합니다. Xcode 또는 Command Line Tools(Swift 빌드용)도 필요합니다.
+
+```bash
+brew tap kwaneung/burnrate https://github.com/kwaneung/burnrate
+brew install burnrate
+burnrate
+```
+
+실행 후 메뉴바 **🔥** 아이콘이 표시됩니다. Formula는 CLI 바이너리이므로 터미널에서 `burnrate`로 실행합니다.
+
+업데이트:
+
+```bash
+brew update
+brew upgrade burnrate
+```
+
+> **v1.0.0 예정:** 서명된 `.app` Cask 배포로 Applications에서 실행·로그인 항목 등록이 가능해질 예정입니다.
+
+---
+
 ## 연동 상세
 
 ### Antigravity
@@ -44,31 +69,6 @@ Cursor 에디터에 로그인되어 있어야 합니다. 세션은 Cursor가 저
 | **연동 해제** | 설정 → Cursor → 연동 해제 |
 
 > **참고:** Cursor Usage API는 **비공식** 엔드포인트입니다. Cursor 업데이트에 따라 동작이 바뀔 수 있습니다.
-
----
-
-## 설치
-
-### Homebrew (권장)
-
-macOS 13+ 및 [Homebrew](https://brew.sh/)가 필요합니다. Xcode 또는 Command Line Tools(Swift 빌드용)도 필요합니다.
-
-```bash
-brew tap kwaneung/burnrate https://github.com/kwaneung/burnrate
-brew install burnrate
-burnrate
-```
-
-실행 후 메뉴바 **🔥** 아이콘이 표시됩니다. Formula는 CLI 바이너리이므로 터미널에서 `burnrate`로 실행합니다.
-
-업데이트:
-
-```bash
-brew update
-brew upgrade burnrate
-```
-
-> **v1.0.0 예정:** 서명된 `.app` Cask 배포로 Applications에서 실행·로그인 항목 등록이 가능해질 예정입니다.
 
 ---
 
