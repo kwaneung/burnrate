@@ -45,20 +45,14 @@ brew upgrade burnrate
 
 ## 사용 방법
 
+### 앱 사용
+
 1. 메뉴바 **🔥** 아이콘 클릭
 2. **설정(⚙️)** → Antigravity / Cursor **연동하기**
 3. 대시보드에서 서비스 선택 → 상세 사용량 확인
 4. **대시보드 노출 설정**에서 표시할 에이전트 on/off
 
 설정 변경은 **즉시 반영**됩니다. 별도 저장 버튼은 없습니다.
-
----
-
-## 알려진 제한
-
-- Cursor Usage API는 공식 third-party API가 아닙니다.
-- Antigravity 사용량은 CLI가 `api_usage.json`을 갱신해야 표시됩니다.
-- Claude Code, Codex, GitHub Copilot은 아직 연동되지 않았습니다.
 
 ---
 
@@ -159,6 +153,14 @@ burnrate/
 - **빌드:** Swift Package Manager (외부 의존성 없음)
 - **백그라운드:** `LSUIElement` (Dock 아이콘 없음)
 - **Info.plist:** 링커 `-sectcreate`로 실행 파일에 내장
+
+---
+
+## 알려진 제한
+
+- Cursor Usage API는 공식 third-party API가 아닙니다.
+- Antigravity 사용량은 CLI가 `api_usage.json`을 갱신해야 표시됩니다.
+- Claude Code, Codex, GitHub Copilot은 아직 연동되지 않았습니다.
 
 ---
 
