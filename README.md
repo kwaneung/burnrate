@@ -47,9 +47,43 @@ Cursor 에디터에 로그인되어 있어야 합니다. 세션은 Cursor가 저
 
 ---
 
+## 설치
+
+### Homebrew (권장)
+
+macOS 13+ 및 [Homebrew](https://brew.sh/)가 필요합니다. Xcode 또는 Command Line Tools(Swift 빌드용)도 필요합니다.
+
+```bash
+brew tap kwaneung/burnrate https://github.com/kwaneung/burnrate
+brew install burnrate
+burnrate
+```
+
+실행 후 메뉴바 **🔥** 아이콘이 표시됩니다. Formula는 CLI 바이너리이므로 터미널에서 `burnrate`로 실행합니다.
+
+업데이트:
+
+```bash
+brew update
+brew upgrade burnrate
+```
+
+> **v1.0.0 예정:** 서명된 `.app` Cask 배포로 Applications에서 실행·로그인 항목 등록이 가능해질 예정입니다.
+
+---
+
 ## 사용 방법
 
-### 빌드 및 실행
+### 앱 사용
+
+1. 메뉴바 **🔥** 아이콘 클릭
+2. **설정(⚙️)** → Antigravity / Cursor **연동하기**
+3. 대시보드에서 서비스 선택 → 상세 사용량 확인
+4. **대시보드 노출 설정**에서 표시할 에이전트 on/off
+
+설정 변경은 **즉시 반영**됩니다. 별도 저장 버튼은 없습니다.
+
+### 소스에서 빌드 (개발용)
 
 Xcode 없이 터미널에서 실행할 수 있습니다.
 
@@ -62,18 +96,9 @@ swift run
 Release 빌드:
 
 ```bash
-swift build --configuration release
+swift build -c release --disable-sandbox
 .build/release/burnrate
 ```
-
-### 앱 사용
-
-1. 메뉴바 **🔥** 아이콘 클릭
-2. **설정(⚙️)** → Antigravity / Cursor **연동하기**
-3. 대시보드에서 서비스 선택 → 상세 사용량 확인
-4. **대시보드 노출 설정**에서 표시할 에이전트 on/off
-
-설정 변경은 **즉시 반영**됩니다. 별도 저장 버튼은 없습니다.
 
 ---
 
@@ -98,6 +123,8 @@ graph TD
 ```
 burnrate/
 ├── Package.swift
+├── Formula/
+│   └── burnrate.rb                        # Homebrew Formula
 ├── README.md
 └── Sources/BurnRate/
     ├── Controllers/BurnRateApp.swift      # @main, MenuBarExtra
@@ -138,21 +165,9 @@ burnrate/
 ## 로드맵
 
 - [ ] Claude Code / Codex / GitHub Copilot 연동
-- [ ] Homebrew cask 배포 (Developer ID 서명 `.app` + Notarization)
+- [x] Homebrew Formula 배포 (`brew install burnrate`)
+- [ ] Homebrew Cask 배포 (v1.0.0 — Developer ID 서명 `.app` + Notarization)
 - [ ] 메뉴바 아이콘 Burn Rate 애니메이션
-- [ ] Brew Formula / cask 스크립트
-
----
-
-## Homebrew 배포 (예정)
-
-```ruby
-# cask 예시 (개념)
-system "swift", "build", "--configuration", "release"
-# Developer ID 서명 .app → brew install --cask burnrate
-```
-
-SPM 단일 바이너리(`swift run`)로도 개발·실행 가능하며, 정식 배포 시에는 서명된 `.app` 번들을 권장합니다.
 
 ---
 
