@@ -3,10 +3,9 @@ import SwiftUI
 struct AntigravityDetailView: View {
     let service: AIService
     @Binding var activeDetailService: AIService?
-    
+
     var body: some View {
         VStack(spacing: 0) {
-            // 헤더 (좌측 뒤로가기 버튼)
             HStack(spacing: 12) {
                 Button(action: {
                     activeDetailService = nil
@@ -17,93 +16,42 @@ struct AntigravityDetailView: View {
                         .fontWeight(.semibold)
                 }
                 .buttonStyle(.plain)
-                
+
                 Text("\(service.name) 상세 사용량")
                     .font(.headline)
                     .fontWeight(.bold)
-                
+
                 Spacer()
             }
             .padding()
             .background(Color(NSColor.windowBackgroundColor))
-            
+
             Divider()
-            
-            // 모델별 쿼터 목록
-            if let quotas = service.quotas, !quotas.isEmpty {
+
+            if let groups = service.quotaGroups, !groups.isEmpty {
                 ScrollView {
-                    VStack(alignment: .leading, spacing: 20) {
-                        Text("Model Quota")
-                            .font(.system(.caption, design: .monospaced))
-                            .foregroundColor(.secondary)
-                            .padding(.top, 8)
-                        
-                        ForEach(quotas) { quota in
-                            VStack(alignment: .leading, spacing: 6) {
-                                // 모델 이름
-                                Text(quota.modelName)
-                                    .font(.system(.subheadline, design: .monospaced))
+                    VStack(alignment: .leading, spacing: 24) {
+                        ForEach(groups) { group in
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text(group.displayName.uppercased())
+                                    .font(.system(.caption, design: .monospaced))
                                     .fontWeight(.bold)
-                                
-                                // 레트로 격자형 게이지 바 + 퍼센트
-                                HStack(spacing: 8) {
-                                    SegmentedProgressBar(percent: quota.remainingPercent)
-                                        .frame(height: 14)
-                                    
-                                    Text("\(quota.remainingPercent)%")
-                                        .font(.system(.caption, design: .monospaced))
-                                        .fontWeight(.bold)
-                                        .frame(width: 32, alignment: .trailing)
+                                    .foregroundColor(.secondary)
+
+                                if let description = group.description, !description.isEmpty {
+                                    Text(description)
+                                        .font(.system(size: 10, design: .monospaced))
+                                        .foregroundColor(.secondary)
                                 }
-                                
-                                // 하단 가이드 텍스트 (남은 용량 및 갱신 시각) - agy CLI 형식 일치
-                                HStack {
-                                    Text("\(quota.remainingPercent)% remaining")
-                                        .foregroundColor(quota.remainingPercent == 100 ? .green : .secondary)
-                                    if quota.refreshTimeString != "Available" {
-                                        Text("•")
-                                            .foregroundColor(.secondary)
-                                        Text("Refreshes in \(quota.refreshTimeString)")
-                                            .foregroundColor(.secondary)
-                                    }
-                                }
-                                .font(.system(size: 10, design: .monospaced))
-                                
-                                // 주간 및 5시간 쿼터 상세 프로그레스
-                                if quota.weeklyLimit != nil || quota.hourlyLimit != nil {
-                                    VStack(alignment: .leading, spacing: 4) {
-                                        if let wLimit = quota.weeklyLimit, let wUsed = quota.weeklyUsed {
-                                            HStack {
-                                                Text("Weekly Used")
-                                                    .font(.system(size: 9, design: .monospaced))
-                                                    .foregroundColor(.secondary)
-                                                Spacer()
-                                                Text("\(wUsed) / \(wLimit)")
-                                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                            }
-                                            SimpleMiniProgressBar(value: Double(wUsed), total: Double(wLimit))
-                                        }
-                                        
-                                        if let hLimit = quota.hourlyLimit, let hUsed = quota.hourlyUsed {
-                                            HStack {
-                                                Text("5-Hour Used")
-                                                    .font(.system(size: 9, design: .monospaced))
-                                                    .foregroundColor(.secondary)
-                                                Spacer()
-                                                Text("\(hUsed) / \(hLimit)")
-                                                    .font(.system(size: 9, weight: .bold, design: .monospaced))
-                                            }
-                                            SimpleMiniProgressBar(value: Double(hUsed), total: Double(hLimit))
-                                        }
-                                    }
-                                    .padding(.top, 4)
+
+                                ForEach(group.buckets) { bucket in
+                                    quotaBucketRow(bucket)
                                 }
                             }
-                            .padding(.horizontal, 4)
                         }
                     }
                     .padding(.horizontal)
-                    .padding(.bottom, 20)
+                    .padding(.vertical, 16)
                 }
             } else {
                 VStack {
@@ -116,43 +64,60 @@ struct AntigravityDetailView: View {
         }
         .frame(width: 280, height: 420)
     }
-}
 
-// 스크린샷과 유사한 격자형 레트로 게이지 바를 구현하는 컴포넌트
-struct SegmentedProgressBar: View {
-    let percent: Int // 0 ~ 100
-    
-    var body: some View {
-        HStack(spacing: 2) {
-            // 20개의 세그먼트 (각 세그먼트당 5% 점유)
-            ForEach(0..<20) { index in
-                let segmentThreshold = index * 5
-                let isActive = segmentThreshold < percent
-                
-                RoundedRectangle(cornerRadius: 1)
-                    .fill(isActive ? Color.green : Color.secondary.opacity(0.18))
+    @ViewBuilder
+    private func quotaBucketRow(_ bucket: AntigravityQuotaBucket) -> some View {
+        VStack(alignment: .leading, spacing: 6) {
+            Text(bucket.displayName)
+                .font(.system(.subheadline, design: .monospaced))
+                .fontWeight(.bold)
+
+            HStack(spacing: 8) {
+                SegmentedProgressBar(percent: bucket.remainingPercent)
+                    .frame(height: 14)
+
+                Text("\(bucket.remainingPercent)%")
+                    .font(.system(.caption, design: .monospaced))
+                    .fontWeight(.bold)
+                    .frame(width: 32, alignment: .trailing)
+            }
+
+            quotaStatusText(for: bucket)
+                .font(.system(size: 10, design: .monospaced))
+        }
+        .padding(.horizontal, 4)
+    }
+
+    @ViewBuilder
+    private func quotaStatusText(for bucket: AntigravityQuotaBucket) -> some View {
+        if bucket.remainingPercent >= 100 {
+            Text("Quota available")
+                .foregroundColor(.green)
+        } else {
+            HStack(spacing: 4) {
+                Text("\(bucket.remainingPercent)% remaining")
+                    .foregroundColor(.secondary)
+                Text("•")
+                    .foregroundColor(.secondary)
+                Text("Refreshes in \(bucket.refreshTimeString)")
+                    .foregroundColor(.secondary)
             }
         }
     }
 }
 
-// 주간 / 시간당 사용율을 표시하는 심플 프로그레스 바
-struct SimpleMiniProgressBar: View {
-    let value: Double
-    let total: Double
-    
+struct SegmentedProgressBar: View {
+    let percent: Int
+
     var body: some View {
-        GeometryReader { geo in
-            let ratio = total > 0 ? value / total : 0.0
-            ZStack(alignment: .leading) {
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.secondary.opacity(0.12))
-                
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(ratio > 0.8 ? Color.red : (ratio > 0.5 ? Color.orange : Color.blue))
-                    .frame(width: geo.size.width * CGFloat(min(ratio, 1.0)))
+        HStack(spacing: 2) {
+            ForEach(0..<20) { index in
+                let segmentThreshold = index * 5
+                let isActive = segmentThreshold < percent
+
+                RoundedRectangle(cornerRadius: 1)
+                    .fill(isActive ? Color.green : Color.secondary.opacity(0.18))
             }
         }
-        .frame(height: 4)
     }
 }

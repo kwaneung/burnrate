@@ -12,11 +12,28 @@ enum CursorSessionReader {
         guard let token = readAccessToken(), !token.isEmpty else {
             return false
         }
+        guard extractSubFromJWT(token) != nil else {
+            return false
+        }
+        return !isAccessTokenExpired(token)
+    }
+
+    static var hasStoredSession: Bool {
+        guard let token = readAccessToken(), !token.isEmpty else {
+            return false
+        }
         return extractSubFromJWT(token) != nil
     }
 
     static func readAccessToken() -> String? {
         readStateValue(forKey: "cursorAuth/accessToken")
+    }
+
+    static func isAccessTokenExpired(_ jwt: String, bufferSeconds: TimeInterval = 60) -> Bool {
+        guard let expiry = extractExpiryFromJWT(jwt) else {
+            return false
+        }
+        return expiry <= Date().addingTimeInterval(bufferSeconds)
     }
 
     private static func readStateValue(forKey key: String) -> String? {
@@ -50,6 +67,24 @@ enum CursorSessionReader {
     }
 
     static func extractSubFromJWT(_ jwt: String) -> String? {
+        decodeJWTPayload(jwt)?["sub"] as? String
+    }
+
+    static func extractExpiryFromJWT(_ jwt: String) -> Date? {
+        guard let payload = decodeJWTPayload(jwt) else {
+            return nil
+        }
+
+        if let exp = payload["exp"] as? TimeInterval {
+            return Date(timeIntervalSince1970: exp)
+        }
+        if let exp = payload["exp"] as? Int {
+            return Date(timeIntervalSince1970: TimeInterval(exp))
+        }
+        return nil
+    }
+
+    private static func decodeJWTPayload(_ jwt: String) -> [String: Any]? {
         let parts = jwt.components(separatedBy: ".")
         guard parts.count > 1 else { return nil }
         var base64 = parts[1]
@@ -63,10 +98,9 @@ enum CursorSessionReader {
         base64 = base64.replacingOccurrences(of: "_", with: "/")
 
         guard let data = Data(base64Encoded: base64),
-              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let sub = json["sub"] as? String else {
+              let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             return nil
         }
-        return sub
+        return json
     }
 }

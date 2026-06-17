@@ -24,7 +24,8 @@ struct AIService: Identifiable, Codable {
     var apiKey: String?
     var currentUsage: Double
     var totalLimit: Double
-    var quotas: [ModelQuota]? // 상세 쿼터 데이터
+    var quotas: [ModelQuota]? // 상세 쿼터 데이터 (Cursor)
+    var quotaGroups: [AntigravityQuotaGroup]? // Antigravity 그룹 쿼터
     var membershipLabel: String? // Cursor: Pro, Pro+ 등
     var onDemandEnabled: Bool?
     var onDemandUsed: Int?
@@ -41,7 +42,8 @@ struct AIService: Identifiable, Codable {
                 logFilePath: defaultAntigravityPath,
                 currentUsage: 0.0, // 모킹 제거: 초기에는 0으로 시작
                 totalLimit: 100.0,
-                quotas: [] // 모킹 제거: 실제 연동 데이터 로드 전에는 비어있음
+                quotas: [],
+                quotaGroups: []
             ),
             AIService(name: "Claude Code", isEnabled: false, currentUsage: 0.0, totalLimit: 200.0),
             AIService(name: "Codex", isEnabled: false, currentUsage: 0.0, totalLimit: 150.0),

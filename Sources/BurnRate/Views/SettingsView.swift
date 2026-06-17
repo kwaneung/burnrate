@@ -4,7 +4,6 @@ struct SettingsView: View {
     @ObservedObject var configManager: ConfigManager
     @Binding var isPresented: Bool
     
-    @State private var cursorAlertMessage: String?
     @State private var isResetConfirming = false
     
     var body: some View {
@@ -41,7 +40,7 @@ struct SettingsView: View {
                             .fontWeight(.semibold)
                         
                         VStack(spacing: 8) {
-                            // 1. Antigravity (로컬 사용량 파일 연동)
+                            // 1. Antigravity (CLI 세션 + Usage API)
                             HStack(alignment: .top) {
                                 Image(systemName: "sparkles")
                                     .font(.title3)
@@ -60,7 +59,7 @@ struct SettingsView: View {
                                             .foregroundColor(.secondary)
                                             .fixedSize(horizontal: false, vertical: true)
                                     } else {
-                                        Text("Antigravity CLI 로그인 세션의 로컬 사용량 파일을 감시하여 사용량을 수집합니다.")
+                                        Text("Antigravity CLI 로그인 세션으로 사용량 API를 조회합니다.")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
                                             .fixedSize(horizontal: false, vertical: true)
@@ -77,7 +76,11 @@ struct SettingsView: View {
                                     .controlSize(.small)
                                 } else {
                                     Button("연동하기") {
-                                        configManager.isAntigravityLinked = true
+                                        if AntigravitySessionReader.hasActiveSession {
+                                            configManager.isAntigravityLinked = true
+                                        } else {
+                                            configManager.antigravityStatusMessage = "Antigravity CLI에 로그인되어 있지 않습니다. agy를 실행해 로그인해 주세요."
+                                        }
                                     }
                                     .buttonStyle(BorderedProminentButtonStyle())
                                     .controlSize(.small)
@@ -88,31 +91,33 @@ struct SettingsView: View {
                             .background(Color.secondary.opacity(configManager.isAntigravityLinked ? 0.06 : 0.03))
                             .cornerRadius(8)
                             
-                            // 1-2. Cursor (실제 키체인 연동 카드)
-                            HStack {
+                            // 1-2. Cursor (로컬 세션 + Usage API)
+                            HStack(alignment: .top) {
                                 Image(systemName: "cursorarrow")
                                     .font(.title3)
                                     .foregroundColor(configManager.isCursorLinked ? .blue : .secondary)
                                     .frame(width: 24)
                                 
-                                VStack(alignment: .leading, spacing: 2) {
+                                VStack(alignment: .leading, spacing: 4) {
                                     Text("Cursor")
                                         .font(.body)
                                         .fontWeight(.medium)
                                         .foregroundColor(configManager.isCursorLinked ? .primary : .secondary)
                                     
                                     if configManager.isCursorLinked {
-                                        Text("Cursor 로컬 세션 연동 완료 (사용량 동기화 중)")
+                                        Text(configManager.cursorStatusMessage)
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     } else {
                                         Text("Cursor 앱의 로컬 세션 파일을 읽어 사용량을 수집합니다. (비공식 API 연동)")
                                             .font(.caption2)
                                             .foregroundColor(.secondary)
+                                            .fixedSize(horizontal: false, vertical: true)
                                     }
                                 }
                                 
-                                Spacer()
+                                Spacer(minLength: 8)
                                 
                                 if configManager.isCursorLinked {
                                     Button("연동 해제") {
@@ -124,9 +129,10 @@ struct SettingsView: View {
                                     Button("연동하기") {
                                         if CursorSessionReader.hasActiveSession {
                                             configManager.isCursorLinked = true
-                                            cursorAlertMessage = nil
+                                        } else if CursorSessionReader.hasStoredSession {
+                                            configManager.cursorStatusMessage = "세션이 만료되었습니다. Cursor를 실행해 다시 로그인해 주세요."
                                         } else {
-                                            cursorAlertMessage = "Cursor 로그인 세션을 찾을 수 없습니다. Cursor 에디터에 로그인되어 있는지 확인해 주세요."
+                                            configManager.cursorStatusMessage = "Cursor에 로그인되어 있지 않습니다. Cursor를 실행해 로그인해 주세요."
                                         }
                                     }
                                     .buttonStyle(BorderedProminentButtonStyle())
@@ -137,14 +143,6 @@ struct SettingsView: View {
                             .padding(.horizontal, 12)
                             .background(Color.secondary.opacity(configManager.isCursorLinked ? 0.06 : 0.03))
                             .cornerRadius(8)
-
-                            if let cursorAlertMessage {
-                                Text(cursorAlertMessage)
-                                    .font(.caption2)
-                                    .foregroundColor(.red)
-                                    .fixedSize(horizontal: false, vertical: true)
-                                    .padding(.horizontal, 12)
-                            }
                             
                             // 2. 나머지 준비중인 에이전트들
                             ForEach(["Claude Code", "Codex"], id: \.self) { name in
@@ -240,7 +238,6 @@ struct SettingsView: View {
                         Button("초기화") {
                             configManager.resetAllSettings()
                             isResetConfirming = false
-                            cursorAlertMessage = nil
                         }
                         .buttonStyle(BorderedProminentButtonStyle())
                         .controlSize(.small)

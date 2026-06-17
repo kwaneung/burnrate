@@ -10,7 +10,7 @@
 
 | 에이전트 | 상태 | 연동 방식 |
 |----------|------|-----------|
-| **Antigravity** | ✅ 지원 | 로컬 사용량 JSON 파일 감시 |
+| **Antigravity** | ✅ 지원 | Antigravity CLI 세션 + Usage API |
 | **Cursor** | ✅ 지원 | Cursor 로컬 세션 + Usage API |
 | **Claude Code** | 🚧 준비 중 | — |
 | **Codex** | 🚧 준비 중 | — |
@@ -58,27 +58,35 @@ brew upgrade burnrate
 
 ## 연동 상세
 
+Antigravity와 Cursor는 동일한 **로컬 세션 읽기 → Usage API 폴링(15초) → 설정 화면 상태 메시지** 패턴을 사용합니다. BurnRate가 직접 OAuth·Keychain 로그인을 하지 않으며, 각 도구에 미리 로그인되어 있어야 합니다.
+
 ### Antigravity
 
-Antigravity CLI가 Google 계정으로 로그인되어 있어야 합니다. BurnRate는 CLI가 갱신하는 로컬 파일만 읽습니다. **Google OAuth·Keychain·외부 API 호출은 하지 않습니다.**
+Antigravity CLI(`agy`)에 Google 계정으로 로그인되어 있어야 합니다. BurnRate는 CLI가 저장한 로컬 OAuth 세션으로 Usage API를 조회합니다. access token은 refresh token으로 **자동 갱신**됩니다.
 
 | 항목 | 내용 |
 |------|------|
-| **사용량 파일** | `~/.gemini/antigravity-cli/api_usage.json` |
-| **동기화** | 파일 변경 감시 (`DispatchSource`), 없으면 30초마다 재시도 |
-| **상세 화면** | 모델별 잔여 %, 주간·5시간 쿼터 |
+| **세션 파일** | `~/.gemini/antigravity-cli/antigravity-oauth-token` |
+| **OAuth 자격 증명** | 설치된 `agy` 바이너리에서 런타임 추출 (또는 `ANTIGRAVITY_CLIENT_ID` / `ANTIGRAVITY_CLIENT_SECRET` 환경 변수) |
+| **Usage API** | `POST https://daily-cloudcode-pa.googleapis.com/v1internal:retrieveUserQuotaSummary` (15초 폴링) |
+| **캐시 파일** | `~/.gemini/antigravity-cli/api_usage.json` (그룹·버킷 쿼터 JSON 저장) |
+| **상세 화면** | 그룹별(Gemini / Claude·GPT) Weekly·5-Hour 잔여 %, 갱신 시각 (agy CLI TUI와 동일 형식) |
+| **세션 만료 시** | 설정에 `agy를 실행해 다시 로그인해 주세요` 안내 |
 | **연동 해제** | 설정 → Antigravity → 연동 해제 |
+
+> **참고:** Usage API는 Antigravity CLI가 사용하는 **비공식** Google 내부 엔드포인트입니다. agy CLI 업데이트에 따라 응답 형식이 바뀔 수 있습니다.
 
 ### Cursor
 
-Cursor 에디터에 로그인되어 있어야 합니다. 세션은 Cursor가 저장한 로컬 SQLite DB에서 읽고, 사용량은 Cursor 웹 API로 조회합니다. **Keychain을 읽지 않으므로 Keychain 접근 팝업이 뜨지 않습니다.**
+Cursor 에디터에 로그인되어 있어야 합니다. 세션은 Cursor가 저장한 로컬 SQLite DB에서 읽고, 사용량은 Cursor 웹 API로 조회합니다. **Keychain을 읽지 않으므로** Keychain 접근 팝업이 뜨지 않습니다. 토큰 갱신은 **Cursor 앱**이 담당합니다.
 
 | 항목 | 내용 |
 |------|------|
 | **세션 파일** | `~/Library/Application Support/Cursor/User/globalStorage/state.vscdb` |
-| **세션 키** | `cursorAuth/accessToken` |
+| **세션 키** | `cursorAuth/accessToken` (JWT) |
 | **Usage API** | `GET https://cursor.com/api/usage-summary` (15초 폴링) |
 | **상세 화면** | Total / Auto+Composer / API 사용률, 플랜명(Pro, Pro+ 등) |
+| **세션 만료 시** | 설정에 `Cursor를 실행해 다시 로그인해 주세요` 안내 |
 | **연동 해제** | 설정 → Cursor → 연동 해제 |
 
 > **참고:** Cursor Usage API는 **비공식** 엔드포인트입니다. Cursor 업데이트에 따라 동작이 바뀔 수 있습니다.
@@ -115,9 +123,13 @@ graph TD
 
     F[ConfigManager] --> B
 
-    F -->|파일 감시| G["~/.gemini/.../api_usage.json"]
-    F -->|SQLite 읽기| H["Cursor state.vscdb"]
+    F -->|15초 폴링| G["Antigravity retrieveUserQuotaSummary"]
+    G --> G1[AntigravitySessionReader]
+    G1 -->|refresh token| G2[OAuth token 갱신]
+
     F -->|15초 폴링| I["cursor.com/api/usage-summary"]
+    I --> H[CursorSessionReader]
+    H -->|SQLite| H1[state.vscdb JWT]
 ```
 
 ### 프로젝트 구조
@@ -132,9 +144,11 @@ burnrate/
     ├── Controllers/BurnRateApp.swift      # @main, MenuBarExtra
     ├── Models/
     │   ├── ConfigManager.swift            # 상태·동기화 핵심
-    │   ├── CursorSessionReader.swift      # Cursor 세션 읽기
+    │   ├── AntigravitySessionReader.swift # Antigravity CLI 세션 읽기
+    │   ├── AntigravityQuotaClient.swift   # Antigravity Usage API
+    │   ├── CursorSessionReader.swift      # Cursor JWT 세션 읽기·만료 검사
     │   ├── AIService.swift
-    │   └── UsageData.swift
+    │   └── UsageData.swift                # AntigravityQuotaGroup / Bucket 모델
     ├── Views/
     │   ├── DashboardView.swift
     │   ├── SettingsView.swift
@@ -158,8 +172,9 @@ burnrate/
 
 ## 알려진 제한
 
-- Cursor Usage API는 공식 third-party API가 아닙니다.
-- Antigravity 사용량은 CLI가 `api_usage.json`을 갱신해야 표시됩니다.
+- Cursor·Antigravity Usage API는 모두 **비공식** 엔드포인트입니다. 각 도구 업데이트에 따라 동작이 바뀔 수 있습니다.
+- 세션이 만료되면 BurnRate가 설정 화면에 재로그인 안내를 표시하지만, **토큰 갱신은 각 도구(agy / Cursor)가 수행**해야 합니다.
+- Antigravity는 refresh token으로 access token을 자동 갱신합니다. Cursor는 JWT 만료·401 시 Cursor 앱 재실행이 필요할 수 있습니다.
 - Claude Code, Codex, GitHub Copilot은 아직 연동되지 않았습니다.
 
 ---
