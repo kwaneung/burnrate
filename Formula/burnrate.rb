@@ -2,7 +2,7 @@ class Burnrate < Formula
   desc "Monitor AI coding agent credit burn rate from the macOS menu bar"
   homepage "https://github.com/kwaneung/burnrate"
   url "https://github.com/kwaneung/burnrate/archive/refs/tags/v0.1.1.tar.gz"
-  sha256 "6f76de7dfbce5455f51b92e739aff5735ced8903905e2067413591dfc62e4c67"
+  sha256 "3b02a18961e33fb0209b18dff08c75b35053a60703a2697216d629f60ec28de1"
   head "https://github.com/kwaneung/burnrate.git", branch: "main"
 
   depends_on :macos
